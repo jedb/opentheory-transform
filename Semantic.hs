@@ -140,7 +140,12 @@ parse n = Command (number n)
 
 
 name :: String -> ((Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems))
-name str = \(stack,d,a,t) -> (Stack $ ObjName (Name [] str) : (stackList stack), d, a, t)
+name str = \(s,d,a,t) ->
+               let unQuoted = init . tail $ str
+                   wordList = words . (map (\x -> if (x == '.') then ' ' else x)) $ unQuoted
+                   name = Name (init wordList) (last wordList)
+                   s' = Stack $ ObjName name : (stackList s)
+               in (s',d,a,t)
 
 
 number :: String -> ((Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems))
@@ -548,7 +553,7 @@ getrhs (TApp (TApp eq _) rhs) =
 
 
 isEq :: Term -> Bool
-isEq (TApp (TApp (TConst (Const (Name [] "=")) _) _) _) = True
+isEq (TConst (Const (Name [] "=")) _) = True
 isEq _ = False
 
 

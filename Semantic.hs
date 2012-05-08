@@ -425,25 +425,27 @@ varType (s,d,a,t) =
 
 alphaEquiv :: Term -> Term -> Bool
 alphaEquiv a b =
-    let equiv = \term1 term2 var1 var2 ->
-            case (term1,term2,var1,var2) of
-                (TConst a1 b1, TConst a2 b2, _, _) ->
-                        a1 == a2 &&
-                        b1 == b2
-                (TApp a1 b1, TApp a2 b2, v1, v2) ->
-                        equiv a1 a2 v1 v2 &&
-                        equiv b1 b2 v1 v2
-                (TAbs (TVar (Var n1 t1)) b1, TAbs (TVar (Var n2 t2)) b2, v1, v2) ->
-                        t1 == t2 &&
-                        equiv b1 b2 (Var n1 t1) (Var n2 t2) &&
-                        equiv b1 b2 v1 v2
-                (TVar a1, TVar a2, v1, v2) ->
-                        a1 == a2 ||
-                        (a1 == v1 && a2 == v2)
-                (_, _, _, _) ->
-                        False
-        dummy = Var (Name [] "") (TypeVar (Name [] ""))
-    in equiv a b dummy dummy
+    let equiv = \term1 term2 varmap lambdaDepth ->
+            case (term1,term2) of
+                (TConst a1 b1, TConst a2 b2) ->
+                    a1 == a2 && b1 == b2
+
+                (TApp a1 b1, TApp a2 b2) ->
+                    equiv a1 a2 varmap lambdaDepth &&
+                    equiv b1 b2 varmap lambdaDepth
+
+                (TAbs (TVar (Var name1 type1)) b1, TAbs (TVar (Var name2 type2)) b2) ->
+                    type1 == type2 &&
+                    equiv b1 b2 newmap (lambdaDepth + 1)
+                    where newmap = (lambdaDepth + 1, ((Var name1 type1),(Var name2 type2))) : varmap
+
+                (TVar a1, TVar a2) ->
+                    -- the order of the pair is important
+                    (lambdaDepth, (a1,a2)) `elem` varmap ||
+                    not ((lambdaDepth, (a1,a2)) `elem` varmap) && a1 == a2
+
+                (_,_) -> False
+    in equiv a b [] 0
 
 
 alphaConvert :: Term -> Term -> Term

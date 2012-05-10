@@ -530,6 +530,11 @@ rename (TAbs (TVar v) t) varlist =
 
 typeOf :: Term -> Type
 typeOf (TConst c ty) = ty
+typeOf (TVar v) = varTy v
+typeOf (TAbs v t) = typeFunc (typeOf v) (typeOf t)
+typeOf (TApp f _) = 
+    -- type of f is of the form [[a,b], "->"]
+    last . aType . typeOf $ f
 
 
 mkEquals :: Term -> Term -> Term

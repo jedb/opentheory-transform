@@ -11,8 +11,7 @@ data Object = ObjNum { objNum :: Number }
             | ObjConst { objConst :: Const }
             | ObjVar { objVar :: Var }
             | ObjTerm { objTerm :: Term }
-            | ObjThm { objThm :: Theorem }
-            | ObjSub { objSub :: Substitution } deriving (Eq)
+            | ObjThm { objThm :: Theorem } deriving (Eq)
 
 type Number = Int
 
@@ -54,7 +53,6 @@ instance Show Object where
     show (ObjVar a)    =   show a
     show (ObjTerm a)   =   show a
     show (ObjThm a)    =   show a
-    show (ObjSub a)    =   show a
 
 instance Show Name where
     show a   =   intercalate "." (nameSpace a ++ [nameId a])
@@ -106,7 +104,7 @@ instance Show Theorems where
     show a   =   "Theorems:\n" ++ intercalate "\n" (map (show) (theoremList a)) ++ "\n\n"
 
 
-type Substitution = ([(Type,Type)],[(Var,Term)])
+type Substitution = [[[Object]]]
 
 
 data ArticleLine = Comment { commentString :: String }
@@ -227,7 +225,7 @@ betaConv :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumpt
 betaConv (s,d,a,t) =
     let stack = stackList s
         op = (\x -> Theorem [] (mkEquals x
-                                         (substitute ([], [(tVar . tAbsVar . tAppLeft $ x, tAppRight $ x)])
+                                         (substitute [[], [[ObjVar . tVar . tAbsVar . tAppLeft $ x, ObjTerm . tAppRight $ x]]]
                                                      (tAbsTerm . tAppLeft $ x))))
         theorem = ObjThm $ op (objTerm $ stack!!0)
         s' = Stack $ theorem : (tail stack)
@@ -382,7 +380,7 @@ subst (s,d,a,t) =
     let stack = stackList s
         op = (\x y -> Theorem (map (substitute y) (thmHyp x))
                               (substitute y (thmCon x)))
-        theorem = ObjThm $ op (objThm $ stack!!0) (objSub $ stack!!1)
+        theorem = ObjThm $ op (objThm $ stack!!0) ((map (map objList)) . (map objList) . objList $ stack!!1)
         s' = Stack $ theorem : (drop 2 stack)
     in (s',d,a,t)
 
@@ -466,7 +464,7 @@ alphaConvert :: Term -> Term -> Term
 alphaConvert (TConst a ty) (TConst _ _) = TConst a ty
 alphaConvert (TApp a1 b1) (TApp a2 b2) = TApp (alphaConvert a1 a2) (alphaConvert b1 b2)
 alphaConvert (TVar v) (TVar _) = TVar v
-alphaConvert (TAbs v1 a) (TAbs v2 b) = substitute ([],[(tVar v1,v2)]) (TAbs v1 (alphaConvert a b))
+alphaConvert (TAbs v1 a) (TAbs v2 b) = substitute [[],[[ObjVar $ tVar v1, ObjTerm $ v2]]] (TAbs v1 (alphaConvert a b))
 
 
 alphaConvertList :: [Term] -> [Term] -> [Term]
@@ -474,12 +472,12 @@ alphaConvertList a b = map (\x -> alphaConvert (fst x) (snd x)) (zip a b)
 
 
 substitute :: Substitution -> Term -> Term
-substitute (tymap,vmap) term =
+substitute [tymap, vmap] term =
     let typesub =
             (\x y ->
                 case y of
-                    (TConst a ty) -> if (ty == fst x)
-                                     then TConst a (snd x)
+                    (TConst a ty) -> if (ty == (objType . head $ x))
+                                     then TConst a (objType . last $ x)
                                      else TConst a ty
                     (TApp a b) -> TApp (typesub x a) (typesub x b)
                     (TAbs v a) -> TAbs v (typesub x a)
@@ -489,10 +487,10 @@ substitute (tymap,vmap) term =
                 case y of
                     (TConst a ty) -> TConst a ty
                     (TApp a b) -> TApp (varsub x a) (varsub x b)
-                    (TVar v) -> if (v == fst x)
-                                then snd x
+                    (TVar v) -> if (v == (objVar . head $ x))
+                                then objTerm . last $ x
                                 else TVar v
-                    (TAbs v a) -> let safe = rename (TAbs v a) (union [(fst x)] (containsVars (snd x)))
+                    (TAbs v a) -> let safe = rename (TAbs v a) (union [(objVar . head $ x)] (containsVars (objTerm . last $ x)))
                                   in case safe of
                                          (TAbs m n) -> TAbs m (varsub x n))
         tydone = foldl' (\x y -> typesub y x) term tymap

@@ -21,11 +21,11 @@ data Name = Name { nameSpace :: [String]
 
 type List = [Object]
 
-data TypeOp = TypeOp { tyOp :: Name } deriving (Eq, Show)
+data TypeOp = TypeOp { tyOp :: Name } deriving (Eq)
 
 data Type = TypeVar { typeVar :: Name }
           | AType { aType :: [Type]
-                  , aTypeOp :: TypeOp } deriving (Eq, Show)
+                  , aTypeOp :: TypeOp } deriving (Eq)
 
 data Const = Const { constName :: Name } deriving (Eq)
 
@@ -56,6 +56,16 @@ instance Show Object where
     show (ObjThm a)    =   show a
     show (ObjSub a)    =   show a
 
+instance Show Name where
+    show a   =   intercalate "." (nameSpace a ++ [nameId a])
+
+instance Show TypeOp where
+    show a   =   "typeOp " ++ (show $ tyOp a)
+
+instance Show Type where
+    show (TypeVar tyVar)   =   "typeVar " ++ (show tyVar)
+    show (AType list typeOp) =   "type " ++ (show $ tyOp typeOp) ++ " " ++ (show list)
+
 instance Show Const where
     show (Const a)   =   show a
 
@@ -72,9 +82,6 @@ instance Show Term where
 
 instance Show Theorem where
     show a   =   (show . thmHyp $ a) ++ " |- " ++ (show . thmCon $ a)
-
-instance Show Name where
-    show a   =   intercalate "." (nameSpace a ++ [nameId a])
 
 instance Eq Term where
     a == b   =   a `alphaEquiv` b

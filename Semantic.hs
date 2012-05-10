@@ -65,6 +65,8 @@ instance Show Var where
 instance Show Term where
     show (TVar a)       =   show a
     show (TConst a _)   =   show a
+    show (TApp (TApp eq lhs) rhs)
+            | isEq eq   =   "(" ++ (show lhs) ++ " = " ++ (show rhs) ++ ")"
     show (TApp a b)     =   "(" ++ (show a) ++ " " ++ (show b) ++ ")"
     show (TAbs a b)     =   "(\\" ++ (show a) ++ " -> " ++ (show b) ++ ")"
 

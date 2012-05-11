@@ -27,7 +27,7 @@ data Term = TVar { tVar :: Var }
           | TApp { tAppLeft :: Term
                  , tAppRight :: Term }
           | TAbs { tAbsVar :: Term
-                 , tAbsTerm :: Term }
+                 , tAbsTerm :: Term } deriving (Ord)
 
 type Substitution = ( [(Name,Type)], [(Var,Term)] )
 

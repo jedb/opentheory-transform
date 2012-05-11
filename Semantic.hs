@@ -1,6 +1,8 @@
 import Control.Monad( liftM )
 import System( getArgs )
 import Data.List
+import qualified Data.Set as Set
+import qualified Data.Map as Map
 import TypeVar
 import Term
 import Theorem
@@ -9,22 +11,22 @@ import Object
 
 
 data Stack = Stack { stackList :: [Object] }
-data Dictionary = Dictionary { dictionMap :: [(Int,Object)] }
-data Assumptions = Assumptions { assumeList :: [Object] }
-data Theorems = Theorems { theoremList :: [Object] }
+data Dictionary = Dictionary { dictionMap :: Map.Map Int Object }
+data Assumptions = Assumptions { assumeSet :: Set.Set Object }
+data Theorems = Theorems { theoremSet :: Set.Set Object }
 
 
 instance Show Stack where
     show a   =   "Stack:\n" ++ intercalate "\n" (map (show) (stackList a)) ++ "\n\n"
 
 instance Show Dictionary where
-    show a   =   "Dictionary:\n" ++ intercalate "\n" (map (show) (dictionMap a)) ++ "\n\n"
+    show a   =   "Dictionary:\n" ++ intercalate "\n" (map (show) (Map.toList . dictionMap $ a)) ++ "\n\n"
 
 instance Show Assumptions where
-    show a   =   "Assumptions:\n" ++ intercalate "\n" (map (show) (assumeList a)) ++ "\n\n"
+    show a   =   "Assumptions:\n" ++ intercalate "\n" (map (show) (Set.toList . assumeSet $ a)) ++ "\n\n"
 
 instance Show Theorems where
-    show a   =   "Theorems:\n" ++ intercalate "\n" (map (show) (theoremList a)) ++ "\n\n"
+    show a   =   "Theorems:\n" ++ intercalate "\n" (map (show) (Set.toList . theoremSet $ a)) ++ "\n\n"
 
 
 data ArticleLine = Comment { commentString :: String }
@@ -76,7 +78,7 @@ name str = \(s,d,a,t) ->
 
 
 number :: String -> ((Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems))
-number n = \(stack,d,a,t) -> (Stack $ ObjNum (read n) : (stackList stack), d, a, t)
+number n = \(s,d,a,t) -> (Stack $ ObjNum (read n) : (stackList s), d, a, t)
 
 
 absTerm :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
@@ -112,7 +114,7 @@ appTerm (s,d,a,t) =
 appThm :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
 appThm (s,d,a,t) =
     let stack = stackList s
-        op = (\x y -> Theorem (union (thmHyp x) (thmHyp y))
+        op = (\x y -> Theorem (Set.union (thmHyp x) (thmHyp y))
                               (mkEquals (TApp (getlhs . thmCon $ y) (getlhs . thmCon $ x))
                                         (TApp (getrhs . thmCon $ y) (getrhs . thmCon $ x))))
         theorem = ObjThm $ op (objThm $ stack!!0) (objThm $ stack!!1)
@@ -123,7 +125,7 @@ appThm (s,d,a,t) =
 assume :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
 assume (s,d,a,t) =
     let stack = stackList s
-        op = (\x -> Theorem [x] x)
+        op = (\x -> Theorem (Set.singleton x) x)
         theorem = ObjThm $ op (objTerm $ stack!!0)
         s' = Stack $ theorem : (tail stack)
     in (s',d,a,t)
@@ -133,20 +135,21 @@ assume (s,d,a,t) =
 axiom :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
 axiom (s,d,a,t) =
     let stack = stackList s
-        assumptions = assumeList a
-        op = (\x y -> Theorem y x)
+        assumptions = assumeSet a
+        op = (\x y -> Theorem (Set.fromList y) x)
         theorem = ObjThm $ op (objTerm $ stack!!0) (map (objTerm) . objList $ stack!!1)
         s' = Stack $ theorem : (drop 2 stack)
-        a' = Assumptions $ theorem : assumptions
+        a' = Assumptions $ Set.insert theorem assumptions
     in (s',d,a',t)
 
 
 betaConv :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
 betaConv (s,d,a,t) =
     let stack = stackList s
-        op = (\x -> Theorem [] (mkEquals x
-                                         (substitute ([], [(tVar . tAbsVar . tAppLeft $ x, tAppRight $ x)])
-                                                     (tAbsTerm . tAppLeft $ x))))
+        op = (\x -> Theorem (Set.empty)
+                            (mkEquals x
+                                      (substitute ([], [(tVar . tAbsVar . tAppLeft $ x, tAppRight $ x)])
+                                                  (tAbsTerm . tAppLeft $ x))))
         theorem = ObjThm $ op (objTerm $ stack!!0)
         s' = Stack $ theorem : (tail stack)
     in (s',d,a,t)
@@ -182,8 +185,8 @@ constTerm (s,d,a,t) =
 deductAntisym :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
 deductAntisym (s,d,a,t) =
     let stack = stackList s
-        op = (\x y -> Theorem (union ((thmHyp $ y) \\ [(thmCon $ x)])
-                                     ((thmHyp $ x) \\ [(thmCon $ y)]))
+        op = (\x y -> Theorem (Set.union (Set.delete (thmCon $ x) (thmHyp $ y))
+                                         (Set.delete (thmCon $ y) (thmHyp $ x)))
                               (mkEquals (thmCon $ y) (thmCon $ x)))
         theorem = ObjThm $ op (objThm $ stack!!0) (objThm $ stack!!1)
         s' = Stack $ theorem : (drop 2 stack)
@@ -193,10 +196,7 @@ deductAntisym (s,d,a,t) =
 def :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
 def (s,d,a,t) =
     let stack = stackList s
-        dictionary = dictionMap d
-        newEntry = ((objNum $ stack!!0), (stack!!1))
-        cleanDict = filter ((/=) (objNum $ stack!!0) . fst) dictionary
-        d' = Dictionary $ newEntry : cleanDict
+        d' = Dictionary $ Map.insert (objNum $ stack!!0) (stack!!1) (dictionMap d)
         s' = Stack $ tail stack
     in (s',d',a,t)
 
@@ -205,7 +205,7 @@ defineConst :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assu
 defineConst (s,d,a,t) =
     let stack = stackList s
         op1 = (\x -> Const x)
-        op2 = (\x y -> Theorem [] (mkEquals x y))
+        op2 = (\x y -> Theorem Set.empty (mkEquals x y))
         constant = ObjConst $ op1 (objName $ stack!!1)
         constTerm = TConst (objConst $ constant) (typeOf (objTerm $ stack!!0))
         theorem = ObjThm $ op2 constTerm (objTerm $ stack!!0)
@@ -229,9 +229,9 @@ defineTypeOp (s,d,a,t) =
         abstype = typeFunc rtype atype
         repTerm = TConst rep reptype
         absTerm = TConst abst abstype
-        rthm = Theorem [] (mkEquals (TApp (tAppLeft . thmCon $ oldthm) r')
-                                    (mkEquals (TApp repTerm (TApp absTerm r')) r'))
-        athm = Theorem [] (mkEquals (TApp absTerm (TApp repTerm a')) a')
+        rthm = Theorem Set.empty (mkEquals (TApp (tAppLeft . thmCon $ oldthm) r')
+                                           (mkEquals (TApp repTerm (TApp absTerm r')) r'))
+        athm = Theorem Set.empty (mkEquals (TApp absTerm (TApp repTerm a')) a')
         s' = Stack $ (ObjThm rthm) : (ObjThm athm) : (ObjConst rep) : (ObjConst abst) : (ObjTyOp n) : (drop 5 stack)
     in (s',d,a,t)
 
@@ -240,7 +240,7 @@ eqMp :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions
 eqMp (s,d,a,t) =
     let stack = stackList s
         op = (\x y -> if (thmCon x == (getlhs (thmCon y))) then
-                      Theorem (union (thmHyp x) (thmHyp y))
+                      Theorem (Set.union (thmHyp x) (thmHyp y))
                               (getrhs (thmCon y))
                       else error "Theorem consequents not alpha equivalent in eqMp")
         theorem = ObjThm $ op (objThm $ stack!!0) (objThm $ stack!!1)
@@ -269,8 +269,7 @@ ref :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,
 ref (s,d,a,t) =
     let stack = stackList s
         dictionary = dictionMap d
-        entry = filter (((==) (objNum $ stack!!0)) . fst) $ dictionary
-        object = snd . head $ entry
+        object = dictionary Map.! (objNum $ stack!!0)
         s' = Stack $ object : tail stack
     in (s',d,a,t)
 
@@ -278,7 +277,7 @@ ref (s,d,a,t) =
 refl :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
 refl (s,d,a,t) =
     let stack = stackList s
-        op = (\x -> Theorem [] (mkEquals x x))
+        op = (\x -> Theorem Set.empty (mkEquals x x))
         theorem = ObjThm $ op (objTerm $ stack!!0)
         s' = Stack $ theorem : (tail stack)
     in (s',d,a,t)
@@ -288,17 +287,16 @@ remove :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptio
 remove (s,d,a,t) =
     let stack = stackList s
         dictionary = dictionMap d
-        entry = filter (((==) (objNum $ stack!!0)) . fst) $ dictionary
-        object = snd . head $ entry
+        object = dictionary Map.! (objNum $ stack!!0)
         s' = Stack $ object : tail stack
-        d' = Dictionary $ dictionary \\ entry
+        d' = Dictionary $ Map.delete (objNum $ stack!!0) dictionary
     in (s',d',a,t)
 
 
 subst :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
 subst (s,d,a,t) =
     let stack = stackList s
-        op = (\x y -> Theorem (map (substitute y) (thmHyp x))
+        op = (\x y -> Theorem (Set.map (substitute y) (thmHyp x))
                               (substitute y (thmCon x)))
         substitution =
             (\x -> let list = (map (map objList)) . (map objList) . objList $ x
@@ -313,12 +311,12 @@ subst (s,d,a,t) =
 thm :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
 thm (s,d,a,t) =
     let stack = stackList s
-        theorems = theoremList t
-        op = (\x y z -> Theorem (alphaConvertList (thmHyp z) y)
+        theorems = theoremSet t
+        op = (\x y z -> Theorem (Set.fromList (alphaConvertList (Set.toList . thmHyp $ z) y))
                                 (alphaConvert (thmCon z) x))
         theorem = ObjThm $ op (objTerm $ stack!!0) (map (objTerm) . objList $ stack!!1) (objThm $ stack!!2)
         s' = Stack $ drop 3 stack
-        t' = Theorems $ union theorems [theorem]
+        t' = Theorems $ Set.insert theorem theorems
     in (s',d,a,t')
 
 
@@ -362,9 +360,9 @@ varType (s,d,a,t) =
 doSemanticCheck :: [String] -> (Stack,Dictionary,Assumptions,Theorems)
 doSemanticCheck =
     let s = Stack []
-        d = Dictionary []
-        a = Assumptions []
-        t = Theorems []
+        d = Dictionary Map.empty
+        a = Assumptions Set.empty
+        t = Theorems Set.empty
         op = (\x y -> case y of (Comment _) -> x
                                 (Command z) -> z x)
     in (foldl' (op) (s,d,a,t)) . (map (parse))

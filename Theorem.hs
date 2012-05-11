@@ -4,16 +4,16 @@ module Theorem (
 
 
 
-import Data.List
+import qualified Data.Set as Set
 import TypeVar
 import Term
 
 
 
-data Theorem = Theorem { thmHyp :: [Term]
-                       , thmCon :: Term } deriving (Eq)
+data Theorem = Theorem { thmHyp :: Set.Set Term
+                       , thmCon :: Term } deriving (Eq, Ord)
 
 
 
 instance Show Theorem where
-    show a   =   (show . thmHyp $ a) ++ " |- " ++ (show . thmCon $ a)
+    show a   =   (show . Set.toList . thmHyp $ a) ++ " |- " ++ (show . thmCon $ a)

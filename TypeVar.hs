@@ -24,18 +24,18 @@ import Data.List
 type Number = Int
 
 data Name = Name { nameSpace :: [String]
-                 , nameId :: String } deriving (Eq)
+                 , nameId :: String } deriving (Eq, Ord)
 
-data TypeOp = TypeOp { tyOp :: Name } deriving (Eq)
+data TypeOp = TypeOp { tyOp :: Name } deriving (Eq, Ord)
 
 data Type = TypeVar { typeVar :: Name }
           | AType { aType :: [Type]
-                  , aTypeOp :: TypeOp } deriving (Eq)
+                  , aTypeOp :: TypeOp } deriving (Eq, Ord)
 
-data Const = Const { constName :: Name } deriving (Eq)
+data Const = Const { constName :: Name } deriving (Eq, Ord)
 
 data Var = Var { varName :: Name
-               , varTy :: Type } deriving (Eq)
+               , varTy :: Type } deriving (Eq, Ord)
 
 
 

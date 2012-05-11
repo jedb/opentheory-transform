@@ -21,7 +21,7 @@ data Object = ObjNum { objNum :: Number }
             | ObjConst { objConst :: Const }
             | ObjVar { objVar :: Var }
             | ObjTerm { objTerm :: Term }
-            | ObjThm { objThm :: Theorem } deriving (Eq)
+            | ObjThm { objThm :: Theorem } deriving (Eq, Ord)
 
 type List = [Object]
 

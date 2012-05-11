@@ -18,8 +18,8 @@ isComment = (==) '#' . head
 isNumber :: String -> Bool
 isNumber ('0':[]) = True
 isNumber ('-':ns)
-         | ns /= [] && head ns /= '0' = isNumber ns
-isNumber n = null . filter (not . isDigit) $ n
+         | (ns /= [] && head ns /= '0') = isNumber ns
+isNumber n = all (isDigit) n
 
 
 isDigit :: Char -> Bool
@@ -37,7 +37,7 @@ isDigit _ = False
 
 
 isName :: String -> Bool
-isName s = foldr (&&) True $ map ((==) '"') $ [head s, last s]
+isName s = all ((==) '"') [head s, last s]
 
 
 scan :: String -> String

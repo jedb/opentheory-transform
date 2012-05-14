@@ -58,11 +58,15 @@ instance Show Var where
 
 
 mkEqualsType :: Type -> Type
-mkEqualsType ty = typeFunc (AType [] (TypeOp (Name [] "bool"))) (typeFunc ty ty)
+mkEqualsType ty = typeFunc typeBool (typeFunc ty ty)
 
 
 typeFunc :: Type -> Type -> Type
 typeFunc ty1 ty2 = AType [ty1,ty2] (TypeOp (Name [] "->"))
+
+
+typeBool :: Type
+typeBool = AType [] (TypeOp (Name [] "bool"))
 
 
 typeVarsInType :: Type -> Set Type

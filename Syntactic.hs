@@ -1,6 +1,7 @@
 import Control.Monad( liftM )
 import System( getArgs )
 import Text.Printf
+import qualified Data.Char as Char
 
 
 getLines :: FilePath -> IO [String]
@@ -19,21 +20,7 @@ isNumber :: String -> Bool
 isNumber ('0':[]) = True
 isNumber ('-':ns)
          | (ns /= [] && head ns /= '0') = isNumber ns
-isNumber n = all (isDigit) n
-
-
-isDigit :: Char -> Bool
-isDigit '0' = True
-isDigit '1' = True
-isDigit '2' = True
-isDigit '3' = True
-isDigit '4' = True
-isDigit '5' = True
-isDigit '6' = True
-isDigit '7' = True
-isDigit '8' = True
-isDigit '9' = True
-isDigit _ = False
+isNumber n = all (Char.isNumber) n
 
 
 isName :: String -> Bool

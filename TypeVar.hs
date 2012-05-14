@@ -12,12 +12,15 @@ module TypeVar (
 	Var(..),
 
 	mkEqualsType,
-	typeFunc
+	typeFunc,
+	typeBool,
+	typeVarsInType
 	) where
 
 
 
 import Data.List
+import qualified Data.Set as Set
 
 
 
@@ -69,6 +72,6 @@ typeBool :: Type
 typeBool = AType [] (TypeOp (Name [] "bool"))
 
 
-typeVarsInType :: Type -> Set Type
+typeVarsInType :: Type -> Set.Set Type
 typeVarsInType (TypeVar t) = Set.singleton (TypeVar t)
-typeVarsInType (AType list _) = unions . (map typeVarsInType) $ list
+typeVarsInType (AType list _) = Set.unions . (map typeVarsInType) $ list

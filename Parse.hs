@@ -1,3 +1,14 @@
+module Parse (
+	getLines,
+	stripReturn,
+	removeEscChars,
+	removeQuotes,
+	separateBy,
+	isComment,
+	isNumber,
+	isName
+	) where
+
 import Control.Monad( liftM )
 import qualified Data.Char as Char
 
@@ -22,7 +33,7 @@ removeQuotes :: String -> String
 removeQuotes = init . tail
 
 
-separateBy :: String -> Char -> [String]
+separateBy :: Char -> String -> [String]
 separateBy char list =
 	let f = (\x -> if (x == char)
 		           then ' '

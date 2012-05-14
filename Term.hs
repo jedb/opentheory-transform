@@ -5,9 +5,11 @@ module Term (
     alphaConvert,
     alphaConvertList,
     substitute,
-    containsVars,
+    boundVars,
+    freeVars,
     rename,
     typeOf,
+    typeVarsInTerm,
     mkEquals,
     isEq,
     getlhs,
@@ -16,6 +18,7 @@ module Term (
 
 
 
+import Data.List
 import qualified Data.Set as Set
 import TypeVar
 
@@ -108,21 +111,21 @@ substitute (tymap,vmap) term =
     in vdone
 
 
-boundVars :: Term -> Set Var
+boundVars :: Term -> Set.Set Var
 boundVars (TConst a b) = Set.empty
 boundVars (TApp a b) = Set.union (boundVars a) (boundVars b)
 boundVars (TVar a) = Set.empty
-boundVars (TAbs a b) = Set.insert a (boundVars b)
+boundVars (TAbs a b) = Set.insert (tVar a) (boundVars b)
 
 
-freeVars :: Term -> Set Var
+freeVars :: Term -> Set.Set Var
 freeVars (TConst a b) = Set.empty
 freeVars (TApp a b) = Set.union (freeVars a) (freeVars b)
 freeVars (TVar a) = Set.singleton a
-freeVars (TAbs a b) = Set.delete a (freeVars b)
+freeVars (TAbs a b) = Set.delete (tVar a) (freeVars b)
 
 
-rename :: Term -> Set Var -> Term
+rename :: Term -> Set.Set Var -> Term
 rename (TAbs (TVar v) t) vars =
     let doRename =
             (\x y z -> case x of
@@ -155,10 +158,10 @@ typeOf (TApp f _) =
     last . aType . typeOf $ f
 
 
-typeVarsInTerm :: Term -> Set Type
+typeVarsInTerm :: Term -> Set.Set Type
 typeVarsInTerm (TConst _ ty) = typeVarsInType ty
 typeVarsInTerm (TVar v) = typeVarsInType . varTy $ v
-typeVarsInTerm (TAbs v t) = Set.union (typeVarsInType . varTy $ v) (typeVarsInTerm t)
+typeVarsInTerm (TAbs v t) = Set.union (typeVarsInType . varTy . tVar $ v) (typeVarsInTerm t)
 typeVarsInTerm (TApp f x) = Set.union (typeVarsInTerm f) (typeVarsInTerm x)
 
 

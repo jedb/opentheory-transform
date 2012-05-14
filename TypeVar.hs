@@ -61,7 +61,7 @@ instance Show Var where
 
 
 mkEqualsType :: Type -> Type
-mkEqualsType ty = typeFunc typeBool (typeFunc ty ty)
+mkEqualsType ty = typeFunc ty (typeFunc ty typeBool)
 
 
 typeFunc :: Type -> Type -> Type

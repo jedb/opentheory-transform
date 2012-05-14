@@ -43,6 +43,7 @@ instance Show Term where
     show (TApp a b)     =   "(" ++ (show a) ++ " " ++ (show b) ++ ")"
     show (TAbs a b)     =   "(\\" ++ (show a) ++ " -> " ++ (show b) ++ ")"
 
+
 instance Eq Term where
     a == b   =   a `alphaEquiv` b
 
@@ -50,27 +51,27 @@ instance Eq Term where
 
 alphaEquiv :: Term -> Term -> Bool
 alphaEquiv a b =
-    let equiv = \term1 term2 varmap lambdaDepth ->
+    let equiv = \term1 term2 varmap ->
             case (term1,term2) of
                 (TConst a1 b1, TConst a2 b2) ->
                     a1 == a2 && b1 == b2
 
                 (TApp a1 b1, TApp a2 b2) ->
-                    equiv a1 a2 varmap lambdaDepth &&
-                    equiv b1 b2 varmap lambdaDepth
+                    equiv a1 a2 varmap &&
+                    equiv b1 b2 varmap
 
                 (TAbs (TVar (Var name1 type1)) b1, TAbs (TVar (Var name2 type2)) b2) ->
                     type1 == type2 &&
-                    equiv b1 b2 newmap (lambdaDepth + 1)
-                    where newmap = (lambdaDepth + 1, ((Var name1 type1),(Var name2 type2))) : varmap
+                    equiv b1 b2 newmap
+                    where newmap = ((Var name1 type1),(Var name2 type2)) : varmap
 
                 (TVar a1, TVar a2) ->
                     -- the order of the pair is important
-                    (lambdaDepth, (a1,a2)) `elem` varmap ||
-                    not ((lambdaDepth, (a1,a2)) `elem` varmap) && a1 == a2
+                    (a1,a2) `elem` varmap ||
+                    a1 == a2 && not ((a1,a2) `elem` varmap)
 
                 (_,_) -> False
-    in equiv a b [] 0
+    in equiv a b []
 
 
 alphaConvert :: Term -> Term -> Term
@@ -103,7 +104,7 @@ substitute (tymap,vmap) term =
                     (TVar v) -> if (v == (fst x))
                                 then snd x
                                 else TVar v
-                    (TAbs v a) -> let safe = rename (TAbs v a) (freeVars . snd $ x)
+                    (TAbs v a) -> let safe = rename (TAbs v a) (Set.insert (fst x) (freeVars . snd $ x))
                                   in case safe of
                                          (TAbs m n) -> TAbs m (varsub x n))
         tydone = foldl' (\x y -> typesub y x) term tymap

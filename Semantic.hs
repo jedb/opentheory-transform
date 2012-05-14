@@ -71,7 +71,8 @@ parse n = Command (number n)
 name :: String -> ((Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems))
 name str = \(s,d,a,t) ->
                let unQuoted = init . tail $ str
-                   wordList = words . (map (\x -> if (x == '.') then ' ' else x)) $ unQuoted
+                   escaped = removeEscChars unQuoted
+                   wordList = words . (map (\x -> if (x == '.') then ' ' else x)) $ escaped
                    name = Name (init wordList) (last wordList)
                    s' = Stack $ ObjName name : (stackList s)
                in (s',d,a,t)
@@ -375,6 +376,14 @@ getLines = liftM lines . readFile
 
 stripReturn :: String -> String
 stripReturn s = if (last s == '\r') then init s else s
+
+
+removeEscChars :: String -> String
+removeEscChars [] = []
+removeEscChars (x:[]) = [x]
+removeEscChars x = if (head x == '\\')
+                   then (x!!1) : (removeEscChars . (drop 2) $ x)
+                   else (head x) : (removeEscChars . tail $ x)
 
 
 main = do

@@ -16,7 +16,7 @@ module Term (
 
 
 
-import Data.List
+import qualified Data.Set as Set
 import TypeVar
 
 
@@ -100,7 +100,7 @@ substitute (tymap,vmap) term =
                     (TVar v) -> if (v == (fst x))
                                 then snd x
                                 else TVar v
-                    (TAbs v a) -> let safe = rename (TAbs v a) (union [fst x] (containsVars . snd $ x))
+                    (TAbs v a) -> let safe = rename (TAbs v a) (freeVars . snd $ x)
                                   in case safe of
                                          (TAbs m n) -> TAbs m (varsub x n))
         tydone = foldl' (\x y -> typesub y x) term tymap
@@ -108,19 +108,22 @@ substitute (tymap,vmap) term =
     in vdone
 
 
-containsVars :: Term -> [Var]
-containsVars t =
-    let f = (\term list ->
-            case term of
-                (TConst a b) -> list
-                (TApp a b) -> union list ((f a list) ++ (f b list))
-                (TVar a) -> union list [a]
-                (TAbs a b) -> union list ([tVar a] ++ (f b list)))
-    in f t []
+boundVars :: Term -> Set Var
+boundVars (TConst a b) = Set.empty
+boundVars (TApp a b) = Set.union (boundVars a) (boundVars b)
+boundVars (TVar a) = Set.empty
+boundVars (TAbs a b) = Set.insert a (boundVars b)
 
 
-rename :: Term -> [Var] -> Term
-rename (TAbs (TVar v) t) varlist =
+freeVars :: Term -> Set Var
+freeVars (TConst a b) = Set.empty
+freeVars (TApp a b) = Set.union (freeVars a) (freeVars b)
+freeVars (TVar a) = Set.singleton a
+freeVars (TAbs a b) = Set.delete a (freeVars b)
+
+
+rename :: Term -> Set Var -> Term
+rename (TAbs (TVar v) t) vars =
     let doRename =
             (\x y z -> case x of
                            (TAbs (TVar a) b) -> if (a == y)
@@ -132,14 +135,14 @@ rename (TAbs (TVar v) t) varlist =
                                          then TVar z
                                          else TVar a)
         findSafe =
-            (\x y -> if (x `elem` y)
+            (\x y -> if (Set.member x y)
                      then case x of
                               (Var a b) ->
                                   case a of
                                       (Name c d) -> findSafe (Var (Name c (d ++ "'")) b) y
                      else x)
-    in if (v `elem` varlist)
-       then doRename (TAbs (TVar v) t) v (findSafe v varlist)
+    in if (Set.member v vars)
+       then doRename (TAbs (TVar v) t) v (findSafe v vars)
        else TAbs (TVar v) t
 
 

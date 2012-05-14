@@ -1,4 +1,3 @@
-import Control.Monad( liftM )
 import System( getArgs )
 import Data.List
 import qualified Data.Set as Set
@@ -7,6 +6,7 @@ import TypeVar
 import Term
 import Theorem
 import Object
+import Parse
 
 
 
@@ -70,9 +70,7 @@ parse n = Command (number n)
 
 name :: String -> ((Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems))
 name str = \(s,d,a,t) ->
-               let unQuoted = init . tail $ str
-                   escaped = removeEscChars unQuoted
-                   wordList = words . (map (\x -> if (x == '.') then ' ' else x)) $ escaped
+               let wordList = (separateBy '.') . removeEscChars . removeQuotes $ str
                    name = Name (init wordList) (last wordList)
                    s' = Stack $ ObjName name : (stackList s)
                in (s',d,a,t)
@@ -368,22 +366,6 @@ doSemanticCheck =
                                 (Command z) -> z x)
     in (foldl' (op) (s,d,a,t)) . (map (parse))
     -- important to use foldl here so commands get applied in the correct order
-
-
-getLines :: FilePath -> IO [String]
-getLines = liftM lines . readFile
-
-
-stripReturn :: String -> String
-stripReturn s = if (last s == '\r') then init s else s
-
-
-removeEscChars :: String -> String
-removeEscChars [] = []
-removeEscChars (x:[]) = [x]
-removeEscChars x = if (head x == '\\')
-                   then (x!!1) : (removeEscChars . (drop 2) $ x)
-                   else (head x) : (removeEscChars . tail $ x)
 
 
 main = do

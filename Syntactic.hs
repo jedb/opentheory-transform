@@ -1,30 +1,5 @@
-import Control.Monad( liftM )
 import System( getArgs )
 import Text.Printf
-import qualified Data.Char as Char
-
-
-getLines :: FilePath -> IO [String]
-getLines = liftM lines . readFile
-
-
-stripReturn :: String -> String
-stripReturn s = if (last s == '\r') then init s else s
-
-
-isComment :: String -> Bool
-isComment = (==) '#' . head
-
-
-isNumber :: String -> Bool
-isNumber ('0':[]) = True
-isNumber ('-':ns)
-         | (ns /= [] && head ns /= '0') = isNumber ns
-isNumber n = all (Char.isNumber) n
-
-
-isName :: String -> Bool
-isName s = all ((==) '"') [head s, last s]
 
 
 scan :: String -> String

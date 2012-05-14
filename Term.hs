@@ -147,12 +147,19 @@ rename (TAbs (TVar v) t) vars =
 
 
 typeOf :: Term -> Type
-typeOf (TConst c ty) = ty
+typeOf (TConst _ ty) = ty
 typeOf (TVar v) = varTy v
 typeOf (TAbs v t) = typeFunc (typeOf v) (typeOf t)
 typeOf (TApp f _) = 
     -- type of f is of the form [[a,b], "->"]
     last . aType . typeOf $ f
+
+
+typeVarsInTerm :: Term -> Set Type
+typeVarsInTerm (TConst _ ty) = typeVarsInType ty
+typeVarsInTerm (TVar v) = typeVarsInType . varTy $ v
+typeVarsInTerm (TAbs v t) = Set.union (typeVarsInType . varTy $ v) (typeVarsInTerm t)
+typeVarsInTerm (TApp f x) = Set.union (typeVarsInTerm f) (typeVarsInTerm x)
 
 
 mkEquals :: Term -> Term -> Term

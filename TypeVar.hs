@@ -63,3 +63,8 @@ mkEqualsType ty = typeFunc (AType [] (TypeOp (Name [] "bool"))) (typeFunc ty ty)
 
 typeFunc :: Type -> Type -> Type
 typeFunc ty1 ty2 = AType [ty1,ty2] (TypeOp (Name [] "->"))
+
+
+typeVarsInType :: Type -> Set Type
+typeVarsInType (TypeVar t) = Set.singleton (TypeVar t)
+typeVarsInType (AType list _) = unions . (map typeVarsInType) $ list

@@ -1,5 +1,6 @@
 import System( getArgs )
 import Data.List
+import Data.Maybe
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import TypeVar
@@ -30,7 +31,7 @@ instance Show Theorems where
 
 
 data ArticleLine = Comment { commentString :: String }
-                 | Command { commandFunc :: ((Stack,Dictionary,Assumptions,Theorems)->(Stack,Dictionary,Assumptions,Theorems)) }
+                 | Command { commandFunc :: ((Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)) }
 
 
 
@@ -68,49 +69,57 @@ parse n = Command (number n)
 
 
 
-name :: String -> ((Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems))
+name :: String -> ((Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems))
 name str = \(s,d,a,t) ->
-               let wordList = (separateBy '.') . removeEscChars . removeQuotes $ str
-                   name = Name (init wordList) (last wordList)
-                   s' = Stack $ ObjName name : (stackList s)
-               in (s',d,a,t)
+               if (not . isName $ str)
+               then Nothing
+               else let wordList = (separateBy '.') . removeEscChars . removeQuotes $ str
+                        name = Name (init wordList) (last wordList)
+                        s' = Stack $ ObjName name : (stackList s)
+                    in Just (s',d,a,t)
 
 
-number :: String -> ((Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems))
-number n = \(s,d,a,t) -> (Stack $ ObjNum (read n) : (stackList s), d, a, t)
+number :: String -> ((Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems))
+number n = \(s,d,a,t) -> 
+               if (not . isNumber $ n)
+               then Nothing
+               else Just (Stack $ ObjNum (read n) : (stackList s), d, a, t)
 
 
-absTerm :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+absTerm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 absTerm (s,d,a,t) =
     let stack = stackList s
         op = (\x y -> TAbs (TVar y) x)
         newTerm = ObjTerm $ op (objTerm $ stack!!0) (objVar $ stack!!1)
         s' = Stack $ newTerm : (drop 2 stack)
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
--- need to add guards to check that the variable is not free in the hypothesis
-absThm :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+absThm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 absThm (s,d,a,t) =
     let stack = stackList s
-        op = (\x y -> Theorem (thmHyp x)
-                              (mkEquals (TAbs (TVar y) (getlhs . thmCon $ x))
-                                        (TAbs (TVar y) (getrhs . thmCon $ x))))
-        theorem = ObjThm $ op (objThm $ stack!!0) (objVar $ stack!!1)
-        s' = Stack $ theorem : (drop 2 stack)
-    in (s',d,a,t)
+        oldthm = objThm $ stack!!0
+        var = objVar $ stack!!1
+    in if (Set.member (TVar var) (thmHyp oldthm))
+       then Nothing
+       else let op = (\x y -> Theorem (thmHyp x)
+                                      (mkEquals (TAbs (TVar y) (getlhs . thmCon $ x))
+                                                (TAbs (TVar y) (getrhs . thmCon $ x))))
+                theorem = ObjThm $ op oldthm var
+                s' = Stack $ theorem : (drop 2 stack)
+            in Just (s',d,a,t)
 
 
-appTerm :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+appTerm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 appTerm (s,d,a,t) =
     let stack = stackList s
         op = (\x y -> TApp y x)
         newTerm = ObjTerm $ op (objTerm $ stack!!0) (objTerm $ stack!!1)
         s' = Stack $ newTerm : (drop 2 stack)
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
-appThm :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+appThm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 appThm (s,d,a,t) =
     let stack = stackList s
         op = (\x y -> Theorem (Set.union (thmHyp x) (thmHyp y))
@@ -118,31 +127,36 @@ appThm (s,d,a,t) =
                                         (TApp (getrhs . thmCon $ y) (getrhs . thmCon $ x))))
         theorem = ObjThm $ op (objThm $ stack!!0) (objThm $ stack!!1)
         s' = Stack $ theorem : (drop 2 stack)
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
-assume :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+assume :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 assume (s,d,a,t) =
     let stack = stackList s
-        op = (\x -> Theorem (Set.singleton x) x)
-        theorem = ObjThm $ op (objTerm $ stack!!0)
-        s' = Stack $ theorem : (tail stack)
-    in (s',d,a,t)
+        term = objTerm $ stack!!0
+    in if (typeOf term /= typeBool)
+       then Nothing
+       else let op = (\x -> Theorem (Set.singleton x) x)
+                theorem = ObjThm $ op term
+                s' = Stack $ theorem : (tail stack)
+            in Just (s',d,a,t)
 
 
--- need to add guarding for all terms being of type bool
-axiom :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+axiom :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 axiom (s,d,a,t) =
     let stack = stackList s
         assumptions = assumeSet a
-        op = (\x y -> Theorem (Set.fromList y) x)
-        theorem = ObjThm $ op (objTerm $ stack!!0) (map (objTerm) . objList $ stack!!1)
-        s' = Stack $ theorem : (drop 2 stack)
-        a' = Assumptions $ Set.insert theorem assumptions
-    in (s',d,a',t)
+        termList = (map (objTerm) . objList $ stack!!1)
+    in if (filter (\x -> typeOf x /= typeBool) termList /= [])
+       then Nothing
+       else let op = (\x y -> Theorem (Set.fromList y) x)
+                theorem = ObjThm $ op (objTerm $ stack!!0) termList
+                s' = Stack $ theorem : (drop 2 stack)
+                a' = Assumptions $ Set.insert theorem assumptions
+            in Just (s',d,a',t)
 
 
-betaConv :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+betaConv :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 betaConv (s,d,a,t) =
     let stack = stackList s
         op = (\x -> Theorem (Set.empty)
@@ -151,37 +165,37 @@ betaConv (s,d,a,t) =
                                                   (tAbsTerm . tAppLeft $ x))))
         theorem = ObjThm $ op (objTerm $ stack!!0)
         s' = Stack $ theorem : (tail stack)
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
-cons :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+cons :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 cons (s,d,a,t) =
     let stack = stackList s
         op = (\x y -> y : x)
         newList = ObjList $ op (objList $ stack!!0) (stack!!1)
         s' = Stack $ newList : (drop 2 stack)
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
-constant :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+constant :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 constant (s,d,a,t) =
     let stack = stackList s
         op = (\x -> Const x)
         constant = ObjConst $ op (objName $ stack!!0)
         s' = Stack $ constant : (tail stack)
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
-constTerm :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+constTerm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 constTerm (s,d,a,t) =
     let stack = stackList s
         op = (\x y -> TConst y x)
         newType = ObjTerm $ op (objType $ stack!!0) (objConst $ stack!!1)
         s' = Stack $ newType : (drop 2 stack)
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
-deductAntisym :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+deductAntisym :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 deductAntisym (s,d,a,t) =
     let stack = stackList s
         op = (\x y -> Theorem (Set.union (Set.delete (thmCon $ x) (thmHyp $ y))
@@ -189,110 +203,118 @@ deductAntisym (s,d,a,t) =
                               (mkEquals (thmCon $ y) (thmCon $ x)))
         theorem = ObjThm $ op (objThm $ stack!!0) (objThm $ stack!!1)
         s' = Stack $ theorem : (drop 2 stack)
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
-def :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+def :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 def (s,d,a,t) =
     let stack = stackList s
         d' = Dictionary $ Map.insert (objNum $ stack!!0) (stack!!1) (dictionMap d)
         s' = Stack $ tail stack
-    in (s',d',a,t)
+    in Just (s',d',a,t)
 
 
-defineConst :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+defineConst :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 defineConst (s,d,a,t) =
     let stack = stackList s
-        op1 = (\x -> Const x)
-        op2 = (\x y -> Theorem Set.empty (mkEquals x y))
-        constant = ObjConst $ op1 (objName $ stack!!1)
-        constTerm = TConst (objConst $ constant) (typeOf (objTerm $ stack!!0))
-        theorem = ObjThm $ op2 constTerm (objTerm $ stack!!0)
-        s' = Stack $ theorem : constant : (drop 2 stack)
-    in (s',d,a,t)
+        term = objTerm $ stack!!0
+    in if (freeVars term /= Set.empty || typeVarsInTerm term /= typeVarsInType (typeOf term))
+       then Nothing
+       else let op1 = (\x -> Const x)
+                op2 = (\x y -> Theorem Set.empty (mkEquals x y))
+                constant = ObjConst $ op1 (objName $ stack!!1)
+                constTerm = TConst (objConst $ constant) (typeOf (objTerm $ stack!!0))
+                theorem = ObjThm $ op2 constTerm (objTerm $ stack!!0)
+                s' = Stack $ theorem : constant : (drop 2 stack)
+            in Just (s',d,a,t)
 
 
-defineTypeOp :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+defineTypeOp :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 defineTypeOp (s,d,a,t) =
     let stack = stackList s
         oldthm = objThm $ stack!!0
         namelist = map (objName) . objList $ stack!!1
-        rep = Const . objName $ stack!!2
-        abst = Const . objName $ stack!!3
-        n = TypeOp . objName $ stack!!4
-        rtype = typeOf . tAppRight . thmCon $ oldthm
-        atype = AType (map (\x -> TypeVar x) namelist) n
-        r' = TVar (Var (Name [] "r'") rtype)
-        a' = TVar (Var (Name [] "a'") atype)
-        reptype = typeFunc atype rtype
-        abstype = typeFunc rtype atype
-        repTerm = TConst rep reptype
-        absTerm = TConst abst abstype
-        rthm = Theorem Set.empty (mkEquals (TApp (tAppLeft . thmCon $ oldthm) r')
-                                           (mkEquals (TApp repTerm (TApp absTerm r')) r'))
-        athm = Theorem Set.empty (mkEquals (TApp absTerm (TApp repTerm a')) a')
-        s' = Stack $ (ObjThm rthm) : (ObjThm athm) : (ObjConst rep) : (ObjConst abst) : (ObjTyOp n) : (drop 5 stack)
-    in (s',d,a,t)
+    in if ((typeVarsInTerm . tAppLeft . thmCon $ oldthm) /= (Set.fromList . map (\x -> TypeVar x) $ namelist) ||
+           (length namelist) /= (length . nub $ namelist))
+       then Nothing
+       else let rep = Const . objName $ stack!!2
+                abst = Const . objName $ stack!!3
+                n = TypeOp . objName $ stack!!4
+                rtype = typeOf . tAppRight . thmCon $ oldthm
+                atype = AType (map (\x -> TypeVar x) namelist) n
+                r' = TVar (Var (Name [] "r'") rtype)
+                a' = TVar (Var (Name [] "a'") atype)
+                reptype = typeFunc atype rtype
+                abstype = typeFunc rtype atype
+                repTerm = TConst rep reptype
+                absTerm = TConst abst abstype
+                rthm = Theorem Set.empty (mkEquals (TApp (tAppLeft . thmCon $ oldthm) r')
+                                                   (mkEquals (TApp repTerm (TApp absTerm r')) r'))
+                athm = Theorem Set.empty (mkEquals (TApp absTerm (TApp repTerm a')) a')
+                s' = Stack $ (ObjThm rthm) : (ObjThm athm) : (ObjConst rep) : (ObjConst abst) : (ObjTyOp n) : (drop 5 stack)
+            in Just (s',d,a,t)
 
 
-eqMp :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+eqMp :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 eqMp (s,d,a,t) =
     let stack = stackList s
-        op = (\x y -> if (thmCon x == (getlhs (thmCon y))) then
-                      Theorem (Set.union (thmHyp x) (thmHyp y))
-                              (getrhs (thmCon y))
-                      else error "Theorem consequents not alpha equivalent in eqMp")
-        theorem = ObjThm $ op (objThm $ stack!!0) (objThm $ stack!!1)
-        s' = Stack $ theorem : (drop 2 stack)
-    in (s',d,a,t)
+        thm1 = objThm $ stack!!0
+        thm2 = objThm $ stack!!1
+    in if ((thmCon thm1) /= (getlhs . thmCon $ thm2))
+       then Nothing
+       else let op = (\x y -> Theorem (Set.union (thmHyp x) (thmHyp y))
+                                      (getrhs (thmCon y)))
+                theorem = ObjThm $ op thm1 thm2
+                s' = Stack $ theorem : (drop 2 stack)
+            in Just (s',d,a,t)
 
 
-nil :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
-nil (s,d,a,t) = (Stack $ ObjList [] : (stackList s), d, a, t)
+nil :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+nil (s,d,a,t) = Just (Stack $ ObjList [] : (stackList s), d, a, t)
 
 
-opType :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+opType :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 opType (s,d,a,t) =
     let stack = stackList s
         op = (\x y -> AType x y)
         newType = ObjType $ op (map (objType) . objList $ stack!!0) (objTyOp $ stack!!1)
         s' = Stack $ newType : (drop 2 stack)
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
-pop :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
-pop (s,d,a,t) = (Stack $ tail (stackList s),d,a,t)
+pop :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+pop (s,d,a,t) = Just (Stack $ tail (stackList s),d,a,t)
 
 
-ref :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+ref :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 ref (s,d,a,t) =
     let stack = stackList s
         dictionary = dictionMap d
         object = dictionary Map.! (objNum $ stack!!0)
         s' = Stack $ object : tail stack
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
-refl :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+refl :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 refl (s,d,a,t) =
     let stack = stackList s
         op = (\x -> Theorem Set.empty (mkEquals x x))
         theorem = ObjThm $ op (objTerm $ stack!!0)
         s' = Stack $ theorem : (tail stack)
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
-remove :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+remove :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 remove (s,d,a,t) =
     let stack = stackList s
         dictionary = dictionMap d
         object = dictionary Map.! (objNum $ stack!!0)
         s' = Stack $ object : tail stack
         d' = Dictionary $ Map.delete (objNum $ stack!!0) dictionary
-    in (s',d',a,t)
+    in Just (s',d',a,t)
 
 
-subst :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+subst :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 subst (s,d,a,t) =
     let stack = stackList s
         op = (\x y -> Theorem (Set.map (substitute y) (thmHyp x))
@@ -304,67 +326,79 @@ subst (s,d,a,t) =
 
         theorem = ObjThm $ op (objThm $ stack!!0) (substitution $ stack!!1)
         s' = Stack $ theorem : (drop 2 stack)
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
-thm :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+thm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 thm (s,d,a,t) =
     let stack = stackList s
         theorems = theoremSet t
-        op = (\x y z -> Theorem (Set.fromList (alphaConvertList (Set.toList . thmHyp $ z) y))
-                                (alphaConvert (thmCon z) x))
-        theorem = ObjThm $ op (objTerm $ stack!!0) (map (objTerm) . objList $ stack!!1) (objThm $ stack!!2)
-        s' = Stack $ drop 3 stack
-        t' = Theorems $ Set.insert theorem theorems
-    in (s',d,a,t')
+        term = objTerm $ stack!!0
+        termlist = map (objTerm) . objList $ stack!!1
+        oldthm = objThm $ stack!!2
+    in if ((term /= (thmCon oldthm)) || (Set.fromList termlist /= thmHyp oldthm))
+       then Nothing
+       else let op = (\x y z -> Theorem (Set.fromList (alphaConvertList (Set.toList . thmHyp $ z) y))
+                                        (alphaConvert (thmCon z) x))
+                theorem = ObjThm $ op term termlist oldthm
+                s' = Stack $ drop 3 stack
+                t' = Theorems $ Set.insert theorem theorems
+            in Just (s',d,a,t')
 
 
-typeOp :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+typeOp :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 typeOp (s,d,a,t) =
     let stack = stackList s
         op = (\x -> TypeOp x)
         typeOp = ObjTyOp $ op (objName $ stack!!0)
         s' = Stack $ typeOp : (tail stack)
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
-var :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+var :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 var (s,d,a,t) =
     let stack = stackList s
-        op = (\x y -> Var y x)
-        var = ObjVar $ op (objType $ stack!!0) (objName $ stack!!1)
-        s' = Stack $ var : (drop 2 stack)
-    in (s',d,a,t)
+        n = objName $ stack!!1
+    in if (nameSpace n /= [])
+       then Nothing
+       else let op = (\x y -> Var y x)
+                var = ObjVar $ op (objType $ stack!!0) n
+                s' = Stack $ var : (drop 2 stack)
+            in Just (s',d,a,t)
 
 
-varTerm :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+varTerm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 varTerm (s,d,a,t) =
     let stack = stackList s
         op = (\x -> TVar x)
         term = ObjTerm $ op (objVar $ stack!!0)
         s' = Stack $ term : (tail stack)
-    in (s',d,a,t)
+    in Just (s',d,a,t)
 
 
-varType :: (Stack,Dictionary,Assumptions,Theorems) -> (Stack,Dictionary,Assumptions,Theorems)
+varType :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 varType (s,d,a,t) =
     let stack = stackList s
-        op = (\x -> TypeVar x)
-        newType = ObjType $ op (objName $ stack!!0)
-        s' = Stack $ newType : (tail stack)
-    in (s',d,a,t)
+        n = objName $ stack!!0
+    in if (nameSpace n /= [])
+       then Nothing
+       else let op = (\x -> TypeVar x)
+                newType = ObjType $ op n
+                s' = Stack $ newType : (tail stack)
+            in Just (s',d,a,t)
 
 
 
-doSemanticCheck :: [String] -> (Stack,Dictionary,Assumptions,Theorems)
+doSemanticCheck :: [String] -> Maybe (Stack,Dictionary,Assumptions,Theorems)
 doSemanticCheck =
     let s = Stack []
         d = Dictionary Map.empty
         a = Assumptions Set.empty
         t = Theorems Set.empty
-        op = (\x y -> case y of (Comment _) -> x
-                                (Command z) -> z x)
-    in (foldl' (op) (s,d,a,t)) . (map (parse))
+        op = (\x y -> case x of (Nothing) -> Nothing
+                                (Just w) -> case y of (Comment _) -> x
+                                                      (Command z) -> z w)
+    in (foldl' (op) (Just (s,d,a,t))) . (map (parse))
     -- important to use foldl here so commands get applied in the correct order
 
 

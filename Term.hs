@@ -20,6 +20,7 @@ module Term (
 
 import Data.List
 import qualified Data.Set as Set
+import qualified Data.Map as Map
 import TypeVar
 
 
@@ -51,27 +52,27 @@ instance Eq Term where
 
 alphaEquiv :: Term -> Term -> Bool
 alphaEquiv a b =
-    let equiv = \term1 term2 varmap ->
+    let equiv = \term1 term2 varmap1 varmap2 depth ->
             case (term1,term2) of
                 (TConst a1 b1, TConst a2 b2) ->
                     a1 == a2 && b1 == b2
 
                 (TApp a1 b1, TApp a2 b2) ->
-                    equiv a1 a2 varmap &&
-                    equiv b1 b2 varmap
+                    equiv a1 a2 varmap1 varmap2 depth &&
+                    equiv b1 b2 varmap1 varmap2 depth
 
                 (TAbs (TVar (Var name1 type1)) b1, TAbs (TVar (Var name2 type2)) b2) ->
                     type1 == type2 &&
-                    equiv b1 b2 newmap
-                    where newmap = ((Var name1 type1),(Var name2 type2)) : varmap
+                    equiv b1 b2 newmap1 newmap2 (depth+1)
+                    where newmap1 = Map.insert (Var name1 type1) depth varmap1
+                          newmap2 = Map.insert (Var name2 type2) depth varmap2
 
                 (TVar a1, TVar a2) ->
-                    -- the order of the pair is important
-                    (a1,a2) `elem` varmap ||
-                    a1 == a2 && not ((a1,a2) `elem` varmap)
+                    a1 == a2 && Map.notMember a1 varmap1  && Map.notMember a2 varmap2 ||
+                    Map.lookup a1 varmap1 == Map.lookup a2 varmap2
 
                 (_,_) -> False
-    in equiv a b []
+    in equiv a b Map.empty Map.empty 0
 
 
 alphaConvert :: Term -> Term -> Term

@@ -1,5 +1,7 @@
 module Theorem (
 	Theorem(..),
+
+	nullThm
 	) where
 
 
@@ -17,3 +19,8 @@ data Theorem = Theorem { thmHyp :: Set.Set Term
 
 instance Show Theorem where
     show a   =   (show . Set.toList . thmHyp $ a) ++ " |- " ++ (show . thmCon $ a)
+
+
+
+nullThm :: Theorem
+nullThm = Theorem Set.empty nullTerm

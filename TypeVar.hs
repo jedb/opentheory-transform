@@ -11,6 +11,13 @@ module TypeVar (
 
 	Var(..),
 
+	nullNumber,
+	nullName,
+	nullTyOp,
+	nullType,
+	nullConst,
+	nullVar,
+
 	mkEqualsType,
 	typeFunc,
 	typeBool,
@@ -57,6 +64,26 @@ instance Show Const where
 
 instance Show Var where
     show (Var a _)   =   show a
+
+
+
+nullNumber :: Number
+nullNumber = 0
+
+nullTyOp :: TypeOp
+nullTyOp = TypeOp nullName
+
+nullType :: Type
+nullType = TypeVar nullName
+
+nullName :: Name
+nullName = Name [] ""
+
+nullConst :: Const
+nullConst = Const nullName
+
+nullVar :: Var
+nullVar = Var nullName nullType
 
 
 

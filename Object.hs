@@ -1,7 +1,9 @@
 module Object (
 	Object(..),
 
-	List
+	List,
+
+    makeSubst
 	) where
 
 
@@ -37,3 +39,11 @@ instance Show Object where
     show (ObjVar a)    =   show a
     show (ObjTerm a)   =   show a
     show (ObjThm a)    =   show a
+
+
+
+makeSubst :: [Object] -> Substitution
+makeSubst l =
+    let list = (map (map objList)) . (map objList) $ l
+        f = (\g h x -> (g . head $ x, h . last $ x))
+    in f (map (f objName objType)) (map (f objVar objTerm)) list

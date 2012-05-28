@@ -1,3 +1,6 @@
+module Main (main) where
+
+
 import System( getArgs )
 import Data.List
 import Data.Maybe
@@ -8,17 +11,15 @@ import Term
 import Theorem
 import Object
 import Parse
+import Stack( Stack, at, (<:>) )
+import qualified Stack as Stack
 import qualified Command as Com
 
 
-data Stack = Stack { stackList :: [Object] }
 data Dictionary = Dictionary { dictionMap :: Map.Map Int Object }
 data Assumptions = Assumptions { assumeSet :: Set.Set Theorem }
 data Theorems = Theorems { theoremSet :: Set.Set Theorem }
 
-
-instance Show Stack where
-    show a   =   "Stack:\n" ++ intercalate "\n" (map (show) (stackList a)) ++ "\n\n"
 
 instance Show Dictionary where
     show a   =   "Dictionary:\n" ++ intercalate "\n" (map (show) (Map.toList . dictionMap $ a)) ++ "\n\n"
@@ -30,8 +31,9 @@ instance Show Theorems where
     show a   =   "Theorems:\n" ++ intercalate "\n" (map (show) (Set.toList . theoremSet $ a)) ++ "\n\n"
 
 
+
 data ArticleLine = Comment { commentString :: String }
-                 | Command { commandFunc :: ((Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)) }
+                 | Command { commandFunc :: ((Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)) }
 
 
 
@@ -69,264 +71,236 @@ parse n = Command (number n)
 
 
 
-name :: String -> ((Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems))
+name :: String -> ((Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems))
 name str = \(s,d,a,t) ->
-               let n = Com.name str
-                   s' = Stack $ ObjName (fromMaybe nullName n) : (stackList s)
-               in if (isNothing n)
-                  then Nothing
-                  else Just (s',d,a,t)
+               do n <- Com.name str
+                  let s' = (ObjName n) <:> s
+                  return (s',d,a,t)
 
 
-number :: String -> ((Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems))
+number :: String -> ((Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems))
 number n = \(s,d,a,t) ->
-               let num = Com.number $ n
-                   s' = Stack $ ObjNum (fromMaybe nullNumber num) : (stackList s)
-               in if (isNothing num)
-                  then Nothing
-                  else Just (s',d,a,t)
+               do num <- Com.number n
+                  let s' = (ObjNum num) <:> s
+                  return (s',d,a,t)
 
 
-absTerm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+absTerm :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 absTerm (s,d,a,t) =
-    let stack = stackList s
-        term = ObjTerm $ Com.absTerm (objTerm $ stack!!0) (objVar $ stack!!1)
-        s' = Stack $ term : (drop 2 stack)
-    in Just (s',d,a,t)
+    do te <- (s `at` 0) >>= objTerm; v <- (s `at` 1) >>= objVar
+       let term = Com.absTerm te v
+           s' = (ObjTerm term) <:> (Stack.pop 2 s)
+       return (s',d,a,t)
 
 
-absThm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+absThm :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 absThm (s,d,a,t) =
-    let stack = stackList s
-        thm = Com.absThm (objThm $ stack!!0) (objVar $ stack!!1)
-        s' = Stack $ (ObjThm $ fromMaybe nullThm thm) : (drop 2 stack)
-    in if (isNothing thm)
-       then Nothing
-       else Just (s',d,a,t)
+    do th <- (s `at` 0) >>= objThm; v <- (s `at` 1) >>= objVar
+       thm <- Com.absThm th v
+       let s' = (ObjThm thm) <:> (Stack.pop 2 s)
+       return (s',d,a,t)
 
 
-appTerm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+appTerm :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 appTerm (s,d,a,t) =
-    let stack = stackList s
-        term = ObjTerm $ Com.appTerm (objTerm $ stack!!0) (objTerm $ stack!!1)
-        s' = Stack $ term : (drop 2 stack)
-    in Just (s',d,a,t)
+    do f <- (s `at` 0) >>= objTerm; x <- (s `at` 1) >>= objTerm
+       let term = Com.appTerm f x
+           s' = (ObjTerm term) <:> (Stack.pop 2 s)
+       return (s',d,a,t)
 
 
-appThm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+appThm :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 appThm (s,d,a,t) =
-    let stack = stackList s
-        thm = ObjThm $ Com.appThm (objThm $ stack!!0) (objThm $ stack!!1)
-        s' = Stack $ thm : (drop 2 stack)
-    in Just (s',d,a,t)
+    do t1 <- (s  `at` 0) >>= objThm; t2 <- (s `at` 1) >>= objThm
+       let thm = Com.appThm t1 t2
+           s' = (ObjThm thm) <:> (Stack.pop 2 s)
+       return (s',d,a,t)
 
 
-assume :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+assume :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 assume (s,d,a,t) =
-    let stack= stackList s
-        thm = Com.assume (objTerm $ stack!!0)
-        s' = Stack $ (ObjThm $ fromMaybe nullThm thm) : (tail stack)
-    in if (isNothing thm)
-       then Nothing
-       else Just (s',d,a,t)
+    do te <- (s `at` 0) >>= objTerm
+       thm <- Com.assume te
+       let s' = (ObjThm thm) <:> (Stack.pop 1 s)
+       return (s',d,a,t)
 
 
-axiom :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+axiom :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 axiom (s,d,a,t) =
-    let stack = stackList s
-        assumptions = assumeSet a
-        thm = Com.axiom (objTerm $ stack!!0) (map (objTerm) . objList $ stack!!1)
-        s' = Stack $ (ObjThm $ fromMaybe nullThm thm) : (drop 2 stack)
-        a' = Assumptions $ Set.insert (fromMaybe nullThm thm) assumptions
-    in if (isNothing thm)
-       then Nothing
-       else Just (s',d,a',t)
+    do te <- (s `at` 0) >>= objTerm; l <- (s `at` 1) >>= objList
+       thm <- Com.axiom te (mapMaybe objTerm l)
+       let s' = (ObjThm thm) <:> (Stack.pop 2 s)
+           a' = Assumptions $ Set.insert thm (assumeSet a)
+       return (s',d,a',t)
 
 
-betaConv :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+betaConv :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 betaConv (s,d,a,t) =
-    let stack = stackList s
-        thm = ObjThm $ Com.betaConv (objTerm $ stack!!0)
-        s' = Stack $ thm : (tail stack)
-    in Just (s',d,a,t)
+    do te <- (s `at` 0) >>= objTerm
+       let thm = Com.betaConv te
+           s' = (ObjThm thm) <:> (Stack.pop 1 s)
+       return (s',d,a,t)
 
 
-cons :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+cons :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 cons (s,d,a,t) =
-    let stack = stackList s
-        newList = ObjList $ (stack!!1) : (objList $ stack!!0)
-        s' = Stack $ newList : (drop 2 stack)
-    in Just (s',d,a,t)
+    do l <- (s `at` 0) >>= objList; h <- (s `at` 1)
+       let newList = h : l
+           s' = (ObjList newList) <:> (Stack.pop 2 s)
+       return (s',d,a,t)
 
 
-constant :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+constant :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 constant (s,d,a,t) =
-    let stack = stackList s
-        constant = ObjConst $ Com.constant (objName $ stack!!0)
-        s' = Stack $ constant : (tail stack)
-    in Just (s',d,a,t)
+    do n <- (s `at` 0) >>= objName
+       let constant = Com.constant n
+           s' = (ObjConst constant) <:> (Stack.pop 1 s)
+       return (s',d,a,t)
 
 
-constTerm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+constTerm :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 constTerm (s,d,a,t) =
-    let stack = stackList s
-        term = ObjTerm $ Com.constTerm (objType $ stack!!0) (objConst $ stack!!1)
-        s' = Stack $ term : (drop 2 stack)
-    in Just (s',d,a,t)
+    do ty <- (s `at` 0) >>= objType; c <- (s `at` 1) >>= objConst
+       let term = Com.constTerm ty c
+           s' = (ObjTerm term) <:> (Stack.pop 2 s)
+       return (s',d,a,t)
 
 
-deductAntisym :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+deductAntisym :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 deductAntisym (s,d,a,t) =
-    let stack = stackList s
-        thm = ObjThm $ Com.deductAntisym (objThm $ stack!!0) (objThm $ stack!!1)
-        s' = Stack $ thm : (drop 2 stack)
-    in Just (s',d,a,t)
+    do t1 <- (s `at` 0) >>= objThm; t2 <- (s `at` 1) >>= objThm
+       let thm = Com.deductAntisym t1 t2
+           s' = (ObjThm thm) <:> (Stack.pop 2 s)
+       return (s',d,a,t)
 
 
-def :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+def :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 def (s,d,a,t) =
-    let stack = stackList s
-        d' = Dictionary $ Map.insert (objNum $ stack!!0) (stack!!1) (dictionMap d)
-        s' = Stack $ tail stack
-    in Just (s',d',a,t)
+    do n <- (s `at` 0) >>= objNum; h <- (s `at` 1)
+       let d' = Dictionary $ Map.insert n h (dictionMap d)
+           s' = (Stack.pop 1 s)
+       return (s',d',a,t)
 
 
-defineConst :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+defineConst :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 defineConst (s,d,a,t) =
-    let stack = stackList s
-        result = Com.defineConst (objTerm $ stack!!0) (objName $ stack!!1)
-        (thm, constant) = fromMaybe (nullThm, nullConst) result
-        s' = Stack $ (ObjThm thm) : (ObjConst constant) : (drop 2 stack)
-    in if (isNothing result)
-       then Nothing
-       else Just (s',d,a,t)
+    do te <- (s `at` 0) >>= objTerm; n <- (s `at` 1) >>= objName
+       (thm, constant) <- Com.defineConst te n
+       let s' = (ObjThm thm) <:> (ObjConst constant) <:> (Stack.pop 2 s)
+       return (s',d,a,t)
 
 
-defineTypeOp :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+defineTypeOp :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 defineTypeOp (s,d,a,t) =
-    let stack = stackList s
-        result = Com.defineTypeOp (objThm $ stack!!0) (map (objName) . objList $ stack!!1)
-                                  (objName $ stack!!2) (objName $ stack!!3) (objName $ stack!!4)
-        (rthm, athm, rep, abst, n) = fromMaybe (nullThm, nullThm, nullConst, nullConst, nullTyOp) result
-        s' = Stack $ (ObjThm rthm) : (ObjThm athm) : (ObjConst rep) : (ObjConst abst) : (ObjTyOp n) : (drop 5 stack)
-    in if (isNothing result)
-       then Nothing
-       else Just (s',d,a,t)
+    do th <- (s `at` 0) >>= objThm; l <- (s `at` 1) >>= objList; r <- (s `at` 2) >>= objName
+       ab <- (s `at` 3) >>= objName; y <- (s `at` 4) >>= objName
+       (rthm, athm, rep, abst, n) <- Com.defineTypeOp th (mapMaybe objName l) r ab y
+       let s' = (ObjThm rthm) <:> (ObjThm athm) <:> (ObjConst rep) <:> (ObjConst abst) <:> (ObjTyOp n) <:> (Stack.pop 5 s)
+       return (s',d,a,t)
 
 
-eqMp :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+eqMp :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 eqMp (s,d,a,t) =
-    let stack = stackList s
-        thm = Com.eqMp (objThm $ stack!!0) (objThm $ stack!!1)
-        s' = Stack $ (ObjThm $ fromMaybe nullThm thm) : (drop 2 stack)
-    in if (isNothing thm)
-       then Nothing
-       else Just (s',d,a,t)
+    do t1 <- (s `at` 0) >>= objThm; t2 <- (s `at` 1) >>= objThm
+       thm <- Com.eqMp t1 t2
+       let s' = (ObjThm thm) <:> (Stack.pop 2 s)
+       return (s',d,a,t)
 
 
-nil :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
-nil (s,d,a,t) = Just (Stack $ ObjList [] : (stackList s), d, a, t)
+nil :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
+nil (s,d,a,t) = Just (ObjList [] <:> s, d, a, t)
 
 
-opType :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+opType :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 opType (s,d,a,t) =
-    let stack = stackList s
-        newType = ObjType $ Com.opType (map (objType) . objList $ stack!!0) (objTyOp $ stack!!1)
-        s' = Stack $ newType : (drop 2 stack)
-    in Just (s',d,a,t)
+    do l <- (s `at` 0) >>= objList; to <- (s `at` 1) >>= objTyOp
+       let newType = Com.opType (mapMaybe objType l) to
+           s' = (ObjType newType) <:> (Stack.pop 2 s)
+       return (s',d,a,t)
 
 
-pop :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
-pop (s,d,a,t) = Just (Stack $ tail (stackList s),d,a,t)
+pop :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
+pop (s,d,a,t) = Just ((Stack.pop 1 s),d,a,t)
 
 
-ref :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+ref :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 ref (s,d,a,t) =
-    let stack = stackList s
-        dictionary = dictionMap d
-        object = dictionary Map.! (objNum $ stack!!0)
-        s' = Stack $ object : tail stack
-    in Just (s',d,a,t)
+    do n <- (s `at` 0) >>= objNum
+       let object = (dictionMap d) Map.! n
+           s' = object <:> (Stack.pop 1 s)
+       return (s',d,a,t)
 
 
-refl :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+refl :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 refl (s,d,a,t) =
-    let stack = stackList s
-        thm = ObjThm $ Com.refl (objTerm $ stack!!0)
-        s' = Stack $ thm : (tail stack)
-    in Just (s',d,a,t)
+    do te <- (s `at` 0) >>= objTerm
+       let thm = Com.refl te
+           s' = (ObjThm thm) <:> (Stack.pop 1 s)
+       return (s',d,a,t)
 
 
-remove :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+remove :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 remove (s,d,a,t) =
-    let stack = stackList s
-        dictionary = dictionMap d
-        object = dictionary Map.! (objNum $ stack!!0)
-        s' = Stack $ object : tail stack
-        d' = Dictionary $ Map.delete (objNum $ stack!!0) dictionary
-    in Just (s',d',a,t)
+    do n <- (s `at` 0) >>= objNum
+       let object = (dictionMap d) Map.! n
+           s' = object <:> (Stack.pop 1 s)
+           d' = Dictionary $ Map.delete n (dictionMap d)
+       return (s',d',a,t)
 
 
-subst :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+subst :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 subst (s,d,a,t) =
-    let stack = stackList s
-        thm = ObjThm $ Com.subst (objThm $ stack!!0) (objList $ stack!!1)
-        s' = Stack $ thm : (drop 2 stack)
-    in Just (s',d,a,t)
+    do th <- (s `at` 0) >>= objThm; l <- (s `at` 1) >>= objList
+       thm <- Com.subst th l
+       let s' = (ObjThm thm) <:> (Stack.pop 2 s)
+       return (s',d,a,t)
 
 
-thm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+thm :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 thm (s,d,a,t) =
-    let stack = stackList s
-        thmSet = theoremSet t
-        thm = Com.thm (objTerm $ stack!!0) (map (objTerm) . objList $ stack!!1) (objThm $ stack!!2)
-        s' = Stack $ (drop 3 stack)
-        t' = Theorems $ Set.insert (fromMaybe nullThm thm) thmSet
-    in if (isNothing thm)
-       then Nothing
-       else Just (s',d,a,t')
+    do te <- (s `at` 0) >>= objTerm; l <- (s `at` 1) >>= objList; th <- (s `at` 2) >>= objThm
+       thm <- Com.thm te (mapMaybe objTerm l) th
+       let s' = Stack.pop 3 s
+           t' = Theorems $ Set.insert thm (theoremSet t)
+       return (s',d,a,t')
 
 
-typeOp :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+typeOp :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 typeOp (s,d,a,t) =
-    let stack = stackList s
-        typeOp = ObjTyOp $ Com.typeOp (objName $ stack!!0)
-        s' = Stack $ typeOp : (tail stack)
-    in Just (s',d,a,t)
+    do n <- (s `at` 0) >>= objName
+       let typeOp = Com.typeOp n
+           s' = (ObjTyOp typeOp) <:> (Stack.pop 1 s)
+       return (s',d,a,t)
 
 
-var :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+var :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 var (s,d,a,t) =
-    let stack = stackList s
-        v = Com.var (objType $ stack!!0) (objName $ stack!!1)
-        s' = Stack $ (ObjVar $ fromMaybe nullVar v) : (drop 2 stack)
-    in if (isNothing v)
-       then Nothing
-       else Just (s',d,a,t)
+    do ty <- (s `at` 0) >>= objType; n <- (s `at` 1) >>= objName
+       v <- Com.var ty n
+       let s' = (ObjVar v) <:> (Stack.pop 2 s)
+       return (s',d,a,t)
 
 
-varTerm :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+varTerm :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 varTerm (s,d,a,t) =
-    let stack = stackList s
-        term = ObjTerm $ Com.varTerm (objVar $ stack!!0)
-        s' = Stack $ term : (tail stack)
-    in Just (s',d,a,t)
+    do v <- (s `at` 0) >>= objVar
+       let term = Com.varTerm v
+           s' = (ObjTerm term) <:> (Stack.pop 1 s)
+       return (s',d,a,t)
 
 
-varType :: (Stack,Dictionary,Assumptions,Theorems) -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+varType :: (Stack Object,Dictionary,Assumptions,Theorems) -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 varType (s,d,a,t) =
-    let stack = stackList s
-        newType = Com.varType (objName $ stack!!0)
-        s' = Stack $ (ObjType $ fromMaybe nullType newType) : (tail stack)
-    in if (isNothing newType)
-       then Nothing
-       else Just (s',d,a,t)
+    do n <- (s `at` 0) >>= objName
+       newType <- Com.varType n
+       let s' = (ObjType newType) <:> (Stack.pop 1 s)
+       return (s',d,a,t)
 
 
 
-doSemanticCheck :: [String] -> Maybe (Stack,Dictionary,Assumptions,Theorems)
+doSemanticCheck :: [String] -> Maybe (Stack Object,Dictionary,Assumptions,Theorems)
 doSemanticCheck =
-    let s = Stack []
+    let s = Stack.empty
         d = Dictionary Map.empty
         a = Assumptions Set.empty
         t = Theorems Set.empty

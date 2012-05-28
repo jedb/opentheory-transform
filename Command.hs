@@ -173,11 +173,11 @@ refl term =
 	Theorem Set.empty (mkEquals term term)
 
 
-subst :: Theorem -> [Object] -> Theorem
+subst :: Theorem -> [Object] -> Maybe Theorem
 subst thm list =
-	let s = makeSubst list
-	in Theorem (Set.map (substitute s) (thmHyp thm))
-               (substitute s (thmCon thm))
+	do s <- makeSubst list
+	   return (Theorem (Set.map (substitute s) (thmHyp thm))
+                       (substitute s (thmCon thm)))
 
 
 thm :: Term -> [Term] -> Theorem -> Maybe Theorem

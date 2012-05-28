@@ -2,8 +2,6 @@ module Term (
     Term(..),
     Substitution,
 
-    nullTerm,
-
     alphaEquiv,
     alphaConvert,
     alphaConvertList,
@@ -34,8 +32,7 @@ data Term = TVar { tVar :: Var }
           | TApp { tAppLeft :: Term
                  , tAppRight :: Term }
           | TAbs { tAbsVar :: Term
-                 , tAbsTerm :: Term }
-          | TNull deriving (Ord)
+                 , tAbsTerm :: Term } deriving (Ord)
 
 type Substitution = ( [(Name,Type)], [(Var,Term)] )
 
@@ -52,10 +49,6 @@ instance Show Term where
 instance Eq Term where
     a == b   =   a `alphaEquiv` b
 
-
-
-nullTerm :: Term
-nullTerm = TNull
 
 
 alphaEquiv :: Term -> Term -> Bool

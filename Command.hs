@@ -30,6 +30,7 @@ module Command (
 -- all functions here deal exclusively with arguments
 -- and results from/to the stack
 
+import Control.Monad
 import Data.List
 import Data.Maybe
 import qualified Data.Set as Set
@@ -43,18 +44,15 @@ import Parse
 
 name :: String -> Maybe Name
 name str =
-	if (not . isName $ str)
-	then Nothing
-	else let wordlist = (separateBy '.') . removeEscChars . removeQuotes $ str
-	         name = Name (init wordlist) (last wordlist)
-	     in Just name
+	do guard (isName str)
+	   let wordlist = (separateBy '.') . removeEscChars . removeQuotes $ str
+	   return (Name (init wordlist) (last wordlist))
 
 
 number :: String -> Maybe Number
 number num =
-	if (not . isNumber $ num)
-	then Nothing
-	else Just (read num)
+	do guard (isNumber num)
+	   return (read num)
 
 
 absTerm :: Term -> Var -> Term
@@ -64,10 +62,9 @@ absTerm term var =
 
 absThm :: Theorem -> Var -> Maybe Theorem
 absThm thm var =
-	if (Set.member (TVar var) (thmHyp thm))
-	then Nothing
-	else Just (Theorem (thmHyp thm) (mkEquals (TAbs (TVar var) (getlhs . thmCon $ thm))
-		                                      (TAbs (TVar var) (getrhs . thmCon $ thm))))
+	do guard (not (Set.member (TVar var) (thmHyp thm)))
+	   return (Theorem (thmHyp thm) (mkEquals (TAbs (TVar var) (getlhs . thmCon $ thm))
+	   	                                      (TAbs (TVar var) (getrhs . thmCon $ thm))))
 
 
 appTerm :: Term -> Term -> Term
@@ -84,16 +81,14 @@ appThm thm1 thm2 =
 
 assume :: Term -> Maybe Theorem
 assume term =
-	if (typeOf term /= typeBool)
-	then Nothing
-	else Just (Theorem (Set.singleton term) term)
+	do guard (typeOf term == typeBool)
+	   return (Theorem (Set.singleton term) term)
 
 
 axiom :: Term -> [Term] -> Maybe Theorem
 axiom term termlist =
-	if (not (all ((== typeBool) . typeOf) termlist))
-	then Nothing
-	else Just (Theorem (Set.fromList termlist) term)
+	do guard (all ((== typeBool) . typeOf) termlist)
+	   return (Theorem (Set.fromList termlist) term)
 
 
 betaConv :: Term -> Theorem
@@ -123,44 +118,41 @@ deductAntisym x y =
 
 defineConst :: Term -> Name -> Maybe (Theorem, Const)
 defineConst term name =
-	if (freeVars term /= Set.empty || typeVarsInTerm term /= typeVarsInType (typeOf term))
-	then Nothing
-	else let constant = Const name
-	         constTerm = TConst constant (typeOf term)
-	         theorem = Theorem Set.empty (mkEquals constTerm term)
-	     in Just (theorem, constant)
+	do guard ((freeVars term == Set.empty) && (typeVarsInTerm term == typeVarsInType (typeOf term)))
+	   let constant = Const name
+	       constTerm = TConst constant (typeOf term)
+	       theorem = Theorem Set.empty (mkEquals constTerm term)
+	   return (theorem, constant)
 
 
 defineTypeOp :: Theorem -> [Name] -> Name -> Name -> Name -> Maybe (Theorem, Theorem, Const, Const, TypeOp)
 defineTypeOp thm namelist r a n =
-	if ((typeVarsInTerm . tAppLeft . thmCon $ thm) /= (Set.fromList . map (TypeVar) $ namelist) ||
-		(length namelist) /= (length . nub $ namelist))
-	then Nothing
-	else let rep = Const r
-	         abst = Const a
-	         op = TypeOp n
-	         rtype = typeOf . tAppRight . thmCon $ thm
-	         atype = AType (map (TypeVar) namelist) op
-	         r' = TVar (Var (Name [] "r'") rtype)
-	         a' = TVar (Var (Name [] "a'") atype)
-	         reptype = typeFunc atype rtype
-	         abstype = typeFunc rtype atype
-	         repTerm = TConst rep reptype
-	         absTerm = TConst abst abstype
-	         rthm = Theorem Set.empty 
-	                        (mkEquals (TApp (tAppLeft . thmCon $ thm) r')
-	         	                      (mkEquals (TApp repTerm (TApp absTerm r')) r'))
-	         athm = Theorem Set.empty
-	                        (mkEquals (TApp absTerm (TApp repTerm a')) a')
-	     in Just (rthm, athm, rep, abst, op)
+	do guard ((typeVarsInTerm . tAppLeft . thmCon $ thm) == (Set.fromList . map (TypeVar) $ namelist) &&
+		      (length namelist) == (length . nub $ namelist))
+	   let rep = Const r
+	       abst = Const a
+	       op = TypeOp n
+	       rtype = typeOf . tAppRight . thmCon $ thm
+	       atype = AType (map (TypeVar) namelist) op
+	       r' = TVar (Var (Name [] "r'") rtype)
+	       a' = TVar (Var (Name [] "a'") atype)
+	       reptype = typeFunc atype rtype
+	       abstype = typeFunc rtype atype
+	       repTerm = TConst rep reptype
+	       absTerm = TConst abst abstype
+	       rthm = Theorem Set.empty
+	                      (mkEquals (TApp (tAppLeft . thmCon $ thm) r')
+	                      	        (mkEquals (TApp repTerm (TApp absTerm r')) r'))
+	       athm = Theorem Set.empty
+	                      (mkEquals (TApp absTerm (TApp repTerm a')) a')
+	   return (rthm, athm, rep, abst, op)
 
 
 eqMp :: Theorem -> Theorem -> Maybe Theorem
 eqMp thm1 thm2 =
-	if (thmCon thm1 /= (getlhs . thmCon $ thm2))
-	then Nothing
-	else Just (Theorem (Set.union (thmHyp thm1) (thmHyp thm2))
-	                   (getrhs . thmCon $ thm2))
+	do guard (thmCon thm1 == (getlhs . thmCon $ thm2))
+	   return (Theorem (Set.union (thmHyp thm1) (thmHyp thm2))
+	   	               (getrhs . thmCon $ thm2))
 
 
 opType :: [Type] -> TypeOp -> Type
@@ -182,10 +174,9 @@ subst thm list =
 
 thm :: Term -> [Term] -> Theorem -> Maybe Theorem
 thm term termlist oldthm =
-	if ((term /= thmCon oldthm) || (Set.fromList termlist /= thmHyp oldthm))
-	then Nothing
-	else Just (Theorem (Set.fromList (alphaConvertList (Set.toList . thmHyp $ oldthm) termlist))
-                       (alphaConvert (thmCon oldthm) term))
+	do guard ((term == thmCon oldthm) && (Set.fromList termlist == thmHyp oldthm))
+	   return (Theorem (Set.fromList (alphaConvertList (Set.toList . thmHyp $ oldthm) termlist))
+	   	               (alphaConvert (thmCon oldthm) term))
 
 
 typeOp :: Name -> TypeOp
@@ -195,9 +186,8 @@ typeOp name =
 
 var :: Type -> Name -> Maybe Var
 var ty name =
-	if (nameSpace name /= [])
-	then Nothing
-	else Just (Var name ty)
+    do guard ((nameSpace name) == [])
+       return (Var name ty)
 
 
 varTerm :: Var -> Term
@@ -207,8 +197,7 @@ varTerm var =
 
 varType :: Name -> Maybe Type
 varType name =
-	if (nameSpace name /= [])
-	then Nothing
-	else Just (TypeVar name)
+    do guard ((nameSpace name) == [])
+       return (TypeVar name)
 
 

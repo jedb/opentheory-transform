@@ -10,11 +10,26 @@ import qualified Data.Set as Set
 stdName :: String -> Name
 stdName s = Name [] s 
 
+stdType :: Type
+stdType = AType [] (TypeOp (stdName "atype"))
+
 stdConst :: Const
 stdConst = Const (stdName "const")
 
+stdConstTerm :: Term
+stdConstTerm = TConst stdConst stdType
+
+stdTypeVarName :: Name
+stdTypeVarName = stdName "typevar"
+
+altTypeVarName :: Name
+altTypeVarName = stdName "alttypevar"
+
 stdTypeVar :: Type
-stdTypeVar = TypeVar (stdName "typevar")
+stdTypeVar = TypeVar stdTypeVarName
+
+altTypeVar :: Type
+altTypeVar = TypeVar altTypeVarName
 
 stdVar :: String -> Var
 stdVar s = Var (stdName s) stdTypeVar
@@ -22,8 +37,11 @@ stdVar s = Var (stdName s) stdTypeVar
 stdVarTerm :: String -> Term
 stdVarTerm s = TVar (stdVar s)
 
+altVar :: String -> Var
+altVar s = Var (stdName s) altTypeVar
+
 altVarTerm :: String -> Term
-altVarTerm s = TVar (Var (stdName s) (TypeVar (stdName "alttypevar")))
+altVarTerm s = TVar (altVar s)
 
 
 
@@ -104,10 +122,51 @@ alphaEquiv6 = TestCase (assertEqual "for ((TAbs ...) `alphaEquiv` (TConst ...))"
 	                                (alphaEquiv (TAbs (stdVarTerm "x") (stdVarTerm "x"))
 	                                	        (TConst stdConst typeBool)))
 
+
+
+substitute1 = TestCase (assertEqual "for (substitute ([],[(x',a)]) (TVar x'))"
+	                                (stdConstTerm)
+	                                (substitute ([],[((stdVar "x'"),stdConstTerm)]) (stdVarTerm "x'")))
+
+substitute2 = TestCase (assertEqual "for (substitute ([],[(x',a)]) (TVar y'))"
+	                                (stdVarTerm "y'")
+	                                (substitute ([],[((stdVar "x'"),stdConstTerm)]) (stdVarTerm "y'")))
+
+substitute3 = TestCase (assertEqual "for (substitute ([],[(x',a)]) (TApp (TVar x') (TVar x')))"
+	                                (TApp stdConstTerm stdConstTerm)
+	                                (substitute ([],[((stdVar "x'"),stdConstTerm)]) (TApp (stdVarTerm "x'") (stdVarTerm "x'"))))
+
+substitute4 = TestCase (assertEqual "for (substitute ([],[(x',a)]) (\\y' -> x'))"
+	                                (TAbs (stdVarTerm "y'") stdConstTerm)
+	                                (substitute ([],[((stdVar "x'"),stdConstTerm)]) (TAbs (stdVarTerm "y'") (stdVarTerm "x'"))))
+
+substitute5 = TestCase (assertEqual "for (substitute ([],[(x',y')]) (\\y' -> x'))"
+	                                (TAbs (stdVarTerm "y''") (stdVarTerm "y'"))
+	                                (substitute ([],[((stdVar "x'"),(stdVarTerm "y'"))]) (TAbs (stdVarTerm "y'") (stdVarTerm "x'"))))
+
+substitute6 = TestCase (assertEqual "for (substitute ([(tx',ta)],[]) (z' with typevar tx'))"
+	                                (TVar (Var (stdName "z'") stdType))
+	                                (substitute ([(stdTypeVarName,stdType)],[]) (stdVarTerm "z'")))
+
+substitute7 = TestCase (assertEqual "for (substitute ([(tx',ta)],[(y',b)]) (\\z' -> y')) --z' has type tx'"
+	                                (TAbs (TVar (Var (stdName "z'") stdType)) stdConstTerm)
+	                                (substitute ([(stdTypeVarName,stdType)],[((altVar "y'"),stdConstTerm)]) (TAbs (stdVarTerm "z'") (altVarTerm "y'"))))
+
+substitute8 = TestCase (assertEqual "for (substitute ([],[(x',y'),(y',z')]) (x'))"
+	                                (stdVarTerm "z'")
+	                                (substitute ([],[((stdVar "x'"),(stdVarTerm "y'")),
+	                                	             ((stdVar "y'"),(stdVarTerm "z'"))]) (stdVarTerm "x'")))
+
+substitute9 = TestCase (assertEqual "for (substitute ([(tx',ty'),(ty',ta)],[]) (z' with typevar tx'))"
+	                                (TVar (Var (stdName "z'") stdType))
+	                                (substitute ([(stdTypeVarName,altTypeVar),(altTypeVarName,stdType)],[]) (stdVarTerm "z'")))
+
+
 main =
 	runTestTT $ TestList [name1,name2,name3,name4,
 	                      number1,number2,number3,number4,number5,
 	                      assume1,assume2,
 	                      axiom1,axiom2,
-	                      alphaEquiv1,alphaEquiv2,alphaEquiv3,alphaEquiv4,alphaEquiv5,alphaEquiv6]
+	                      alphaEquiv1,alphaEquiv2,alphaEquiv3,alphaEquiv4,alphaEquiv5,alphaEquiv6,
+	                      substitute1,substitute2,substitute3,substitute4,substitute5,substitute6,substitute7,substitute8,substitute9]
 

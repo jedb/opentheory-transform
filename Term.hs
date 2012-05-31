@@ -96,8 +96,12 @@ substitute (tymap,vmap) term =
                                      then TConst a (snd x)
                                      else TConst a ty
                     (TApp a b) -> TApp (typesub x a) (typesub x b)
-                    (TAbs v a) -> TAbs v (typesub x a)
-                    (TVar v) -> TVar v)
+                    (TAbs (TVar (Var n ty)) a) -> if (ty == (TypeVar . fst $ x))
+                                                  then TAbs (TVar (Var n (snd x))) (typesub x a)
+                                                  else TAbs (TVar (Var n ty)) (typesub x a)
+                    (TVar (Var n ty)) -> if (ty == (TypeVar . fst $ x))
+                                         then TVar (Var n (snd x))
+                                         else TVar (Var n ty))
         varsub =
             (\x y ->
                 case y of

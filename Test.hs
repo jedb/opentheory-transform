@@ -163,10 +163,16 @@ substitute9 = TestCase (assertEqual "for (substitute ([(tx',ty'),(ty',ta)],[]) (
 
 
 main =
-	runTestTT $ TestList [name1,name2,name3,name4,
-	                      number1,number2,number3,number4,number5,
-	                      assume1,assume2,
-	                      axiom1,axiom2,
-	                      alphaEquiv1,alphaEquiv2,alphaEquiv3,alphaEquiv4,alphaEquiv5,alphaEquiv6,
-	                      substitute1,substitute2,substitute3,substitute4,substitute5,substitute6,substitute7,substitute8,substitute9]
+	do putStrLn "Command.name"
+	   runTestTT $ TestList [name1,name2,name3,name4]
+	   putStrLn "Command.number"
+	   runTestTT $ TestList [number1,number2,number3,number4,number5]
+	   putStrLn "Command.assume"
+	   runTestTT $ TestList [assume1,assume2]
+	   putStrLn "Command.axiom"
+	   runTestTT $ TestList [axiom1,axiom2]
+	   putStrLn "Term.alphaEquiv"
+	   runTestTT $ TestList [alphaEquiv1,alphaEquiv2,alphaEquiv3,alphaEquiv4,alphaEquiv5,alphaEquiv6]
+	   putStrLn "Term.substitute"
+	   runTestTT $ TestList [substitute1,substitute2,substitute3,substitute4,substitute5,substitute6,substitute7,substitute8,substitute9]
 

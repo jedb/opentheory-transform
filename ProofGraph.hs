@@ -22,7 +22,7 @@ data Graph a = Graph { nodes :: Set (Node a) }
 
 
 instance (Show a, Eq a) => Show (Node a) where
-	show x   =   let header = "ID: " ++ (show . contents $ x)
+	show x   =   let header = show . contents $ x
 	                 footer = if ((successors x) == Set.empty)
 	                 	      then "\n"
 	                 	      else " -> " ++ List.intercalate ", " (map (show . contents) (Set.toList . successors $ x)) ++ "\n"

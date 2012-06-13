@@ -49,7 +49,7 @@ argMap "typeOp" = IO 1 1
 argMap "var" = IO 2 1
 argMap "varTerm" = IO 1 1
 argMap "varType" = IO 1 1
-argMap x | (isNumber x || isName x) = IO 0 1
+argMap x | (isName x) = IO 0 1
 
 
 
@@ -87,6 +87,10 @@ parse gs@(graph,stack,dictionary) str =
         "pop" -> (graph, (Stack.pop 1 stack), dictionary)
 
         '#':rest -> gs
+
+        n | (isNumber n) -> let node = Node n Set.empty
+                                stack' = node <:> stack
+                            in (graph, stack', dictionary)
 
         x -> let (graph', stack') = process x (argMap x) graph stack
              in (graph', stack', dictionary)

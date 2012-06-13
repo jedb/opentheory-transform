@@ -75,12 +75,12 @@ parse gs@(graph,stack,dictionary) str =
 
         "ref" -> let num = read . contents . fromJust $ stack `at` 0
                      node = fromJust (Map.lookup num dictionary)
-                     stack' = node <:> stack
+                     stack' = node <:> (Stack.pop 1 stack)
                  in (graph, stack', dictionary)
 
         "remove" -> let num = read . contents . fromJust $ stack `at` 0
                         node = fromJust (Map.lookup num dictionary)
-                        stack' = node <:> stack
+                        stack' = node <:> (Stack.pop 1 stack)
                         dictionary' = Map.delete num dictionary
                     in (graph, stack', dictionary')
 
@@ -106,5 +106,5 @@ main = do
     args <- getArgs
     list <- getLines $ head args
     let result = doGraphGen (map (stripReturn) list)
-    printf $ show result
+    printf $ show (case result of (graph, state, dictionary) -> graph)
 

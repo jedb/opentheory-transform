@@ -93,12 +93,13 @@ parse gs@(graph,stack,dictionary) str =
         
 
 
-doGraphGen :: [String] -> GraphState
+doGraphGen :: [String] -> Graph String
 doGraphGen list =
     let graph = Graph.empty
         stack = Stack.empty
         dictionary = Map.empty
-    in foldl' parse (graph,stack,dictionary) list
+        result = foldl' parse (graph,stack,dictionary) list
+    in case result of (g,s,d) -> g
 
 
 
@@ -106,5 +107,5 @@ main = do
     args <- getArgs
     list <- getLines $ head args
     let result = doGraphGen (map (stripReturn) list)
-    printf $ show (case result of (graph, state, dictionary) -> graph)
+    printf $ show result
 

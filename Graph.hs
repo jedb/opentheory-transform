@@ -1,4 +1,5 @@
 import System( getArgs )
+import Text.Printf
 import Data.Maybe
 import Data.List
 import Data.Set( Set )
@@ -14,8 +15,8 @@ import Parse
 
 
 type GraphState = (Graph String,
-	               Stack (Node String),
-	               Map Int (Node String))
+                   Stack (Node String),
+                   Map Int (Node String))
 
 
 
@@ -41,7 +42,6 @@ argMap "defineTypeOp" = IO 5 5
 argMap "eqMp" = IO 2 1
 argMap "nil" = IO 0 1
 argMap "opType" = IO 2 1
-argMap "pop" = IO 1 0
 argMap "refl" = IO 1 1
 argMap "subst" = IO 2 1
 argMap "thm" = IO 3 0
@@ -55,53 +55,56 @@ argMap x | (isNumber x || isName x) = IO 0 1
 
 process :: String -> CommandIO -> Graph String -> Stack (Node String) -> (Graph String, Stack (Node String))
 process str io graph stack =
-	let argList = map (\x -> fromJust (stack `at` x)) [0..((args io) - 1)]
-	    nodeList = replicate (results io) (Node str (Set.fromList argList))
-	    stack' = foldr (<:>) (Stack.pop (args io) stack) nodeList
-	    graph' = Graph.insert (head nodeList) graph
+    let argList = map (\x -> fromJust (stack `at` x)) [0..((args io) - 1)]
+        node = Node str (Set.fromList argList)
+        nodeList = replicate (results io) node
+        stack' = foldr (<:>) (Stack.pop (args io) stack) nodeList
+        graph' = Graph.insert node graph
     in (graph',stack')
 
 
 
 parse :: GraphState -> String -> GraphState
 parse gs@(graph,stack,dictionary) str =
-	case str of
-		"def" -> let num = read . contents . fromJust $ stack `at` 0
-		             node = fromJust $ stack `at` 1
-		             dictionary' = Map.insert num node dictionary
-		             stack' = Stack.pop 1 stack
-		         in (graph, stack', dictionary')
+    case str of
+        "def" -> let num = read . contents . fromJust $ stack `at` 0
+                     node = fromJust $ stack `at` 1
+                     dictionary' = Map.insert num node dictionary
+                     stack' = Stack.pop 1 stack
+                 in (graph, stack', dictionary')
 
-		"ref" -> let num = read . contents . fromJust $ stack `at` 0
-		             node = fromJust (Map.lookup num dictionary)
-		             stack' = node <:> stack
-		         in (graph, stack', dictionary)
+        "ref" -> let num = read . contents . fromJust $ stack `at` 0
+                     node = fromJust (Map.lookup num dictionary)
+                     stack' = node <:> stack
+                 in (graph, stack', dictionary)
 
-		"remove" -> let num = read . contents . fromJust $ stack `at` 0
-		                node = fromJust (Map.lookup num dictionary)
-		                stack' = node <:> stack
-		                dictionary' = Map.delete num dictionary
-		            in (graph, stack', dictionary')
+        "remove" -> let num = read . contents . fromJust $ stack `at` 0
+                        node = fromJust (Map.lookup num dictionary)
+                        stack' = node <:> stack
+                        dictionary' = Map.delete num dictionary
+                    in (graph, stack', dictionary')
 
-		'#':rest -> gs
+        "pop" -> (graph, (Stack.pop 1 stack), dictionary)
 
-		x -> let (graph', stack') = process x (argMap x) graph stack
-			 in (graph', stack', dictionary)
-		
+        '#':rest -> gs
+
+        x -> let (graph', stack') = process x (argMap x) graph stack
+             in (graph', stack', dictionary)
+        
 
 
 doGraphGen :: [String] -> GraphState
 doGraphGen list =
-	let graph = Graph.empty
-	    stack = Stack.empty
-	    dictionary = Map.empty
-	in foldl' (parse) (graph,stack,dictionary) list
+    let graph = Graph.empty
+        stack = Stack.empty
+        dictionary = Map.empty
+    in foldl' parse (graph,stack,dictionary) list
 
 
 
 main = do
-	args <- getArgs
-	list <- getLines $ head args
-	let result = doGraphGen (map (stripReturn) list)
-	print $ show result
+    args <- getArgs
+    list <- getLines $ head args
+    let result = doGraphGen (map (stripReturn) list)
+    printf $ show result
 

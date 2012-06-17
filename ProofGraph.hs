@@ -6,23 +6,22 @@ import Data.Set( Set )
 import qualified Data.Set as Set
 import Data.Map( Map, (!) )
 import qualified Data.Map as Map
-import ProofGraph
-import qualified ProofGraph as Graph
+import Data.Graph.Inductive.Graph( LNode, LEdge, (&) )
+import qualified Data.Graph.Inductive.Graph as Graph
+import Data.Graph.Inductive.Tree
 import Stack( Stack, at, (<:>) )
 import qualified Stack as Stack
 import Parse
 
 
 
-type GraphState = (Graph String,
-                   Stack (Node String),
-                   Map Int (Node String))
-
+type PGraph = Gr String (Int,Int)
+type PStack = Stack (Int, LNode String)
+type PMap = Map Int (Int, LNode String)
 
 
 data CommandIO = IO { args :: Int
                     , results :: Int }
-
 
 
 argMap :: String -> CommandIO
@@ -53,32 +52,48 @@ argMap x | (isName x) = IO 0 1
 
 
 
-process :: String -> CommandIO -> Graph String -> Stack (Node String) -> (Graph String, Stack (Node String))
+process :: String -> CommandIO -> PGraph -> PStack -> (PGraph, PStack)
 process str io graph stack =
     let argList = map (\x -> fromJust (stack `at` x)) [0..((args io) - 1)]
-        node = Node str (Set.fromList argList)
-        nodeList = replicate (results io) node
+        nextNum = head (Graph.newNodes 1 graph)
+        node = (nextNum, str)
+        edgeList = map (\x -> (nextNum, (fst . snd . snd $ x), (fst x, fst . snd $ x))) (zip [1..(args io)] argList)
+        r = insertNode node edgeList graph
+        nodeList = map (\x -> (x, fst r)) [1..(results io)]
         stack' = foldr (<:>) (Stack.pop (args io) stack) nodeList
-        graph' = Graph.insert node graph
-    in (graph',stack')
+    in (snd r, stack')
 
 
+insertNode :: LNode String -> [LEdge (Int,Int)] -> PGraph -> (LNode String, PGraph)
+insertNode node edgeList graph =
+    let checkList = filter (\x -> (snd x) == (snd node)) (Graph.labNodes graph)
+        edgeCheck = filter (\x -> (snd x) == edgeList) (zip [0..] (map ((Graph.out graph) . fst) checkList))
+        actualNode = if (edgeCheck == [])
+                     then node
+                     else checkList !! (fst . head $ edgeCheck)
+        actualEdges = map (\x -> case x of
+                                     (a,b,c) -> (fst actualNode,b,c)) edgeList
+        graph' = if (node == actualNode)
+                 then Graph.insEdges actualEdges (Graph.insNode actualNode graph)
+                 else graph
+    in (actualNode,graph')
 
-parse :: GraphState -> String -> GraphState
+
+parse :: (PGraph,PStack,PMap) -> String -> (PGraph,PStack,PMap)
 parse gs@(graph,stack,dictionary) str =
     case str of
-        "def" -> let num = read . contents . fromJust $ stack `at` 0
+        "def" -> let num = fst . fromJust $ stack `at` 0
                      node = fromJust $ stack `at` 1
                      dictionary' = Map.insert num node dictionary
                      stack' = Stack.pop 1 stack
                  in (graph, stack', dictionary')
 
-        "ref" -> let num = read . contents . fromJust $ stack `at` 0
+        "ref" -> let num = fst . fromJust $ stack `at` 0
                      node = fromJust (Map.lookup num dictionary)
                      stack' = node <:> (Stack.pop 1 stack)
                  in (graph, stack', dictionary)
 
-        "remove" -> let num = read . contents . fromJust $ stack `at` 0
+        "remove" -> let num = fst . fromJust $ stack `at` 0
                         node = fromJust (Map.lookup num dictionary)
                         stack' = node <:> (Stack.pop 1 stack)
                         dictionary' = Map.delete num dictionary
@@ -88,7 +103,7 @@ parse gs@(graph,stack,dictionary) str =
 
         '#':rest -> gs
 
-        n | (isNumber n) -> let node = Node n Set.empty
+        n | (isNumber n) -> let node = (read n, (0,""))
                                 stack' = node <:> stack
                             in (graph, stack', dictionary)
 
@@ -97,7 +112,7 @@ parse gs@(graph,stack,dictionary) str =
         
 
 
-doGraphGen :: [String] -> Graph String
+doGraphGen :: [String] -> PGraph
 doGraphGen list =
     let graph = Graph.empty
         stack = Stack.empty
@@ -111,5 +126,5 @@ main = do
     args <- getArgs
     list <- getLines $ head args
     let result = doGraphGen (map (stripReturn) list)
-    printf $ show result
+    printf $ (show result) ++ "\n"
 

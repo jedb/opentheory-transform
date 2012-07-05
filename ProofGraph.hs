@@ -67,14 +67,12 @@ process str io graph stack =
 insertNode :: LNode String -> [LEdge (Int,Int)] -> PGraph -> (LNode String, PGraph)
 insertNode node edgeList graph =
     let checkList = filter (\x -> (snd x) == (snd node)) (Graph.labNodes graph)
-        edgeCheck = filter (\x -> (snd x) == edgeList) (zip [0..] (map ((Graph.out graph) . fst) checkList))
-        actualNode = if (edgeCheck == [])
-                     then node
-                     else checkList !! (fst . head $ edgeCheck)
-        actualEdges = map (\x -> case x of
-                                     (a,b,c) -> (fst actualNode,b,c)) edgeList
+        edgeCheck = filter (\x -> (length (snd x) == length edgeList) &&
+                                  all (\((a,b,c),(d,e,f)) -> b==e && c==f)
+                                      (zip (snd x) edgeList)) (zip [0..] (map ((Graph.out graph) . fst) checkList))
+        actualNode = if (edgeCheck == []) then node else checkList !! (fst . head $ edgeCheck)
         graph' = if (node == actualNode)
-                 then Graph.insEdges actualEdges (Graph.insNode actualNode graph)
+                 then Graph.insEdges edgeList (Graph.insNode actualNode graph)
                  else graph
     in (actualNode,graph')
 

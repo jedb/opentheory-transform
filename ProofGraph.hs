@@ -1,5 +1,10 @@
-import System( getArgs )
-import Text.Printf
+module ProofGraph (
+    PGraph,
+    doGraphGen
+    ) where
+
+
+
 import Data.Maybe
 import Data.List
 import Data.Set( Set )
@@ -11,7 +16,7 @@ import qualified Data.Graph.Inductive.Graph as Graph
 import Data.Graph.Inductive.Tree
 import Stack( Stack, at, (<:>) )
 import qualified Stack as Stack
-import Parse
+import Parse( isNumber, isName )
 
 
 
@@ -117,12 +122,4 @@ doGraphGen list =
         dictionary = Map.empty
         result = foldl' parse (graph,stack,dictionary) list
     in case result of (g,s,d) -> g
-
-
-
-main = do
-    args <- getArgs
-    list <- getLines $ head args
-    let result = doGraphGen (map (stripReturn) list)
-    printf $ (show result) ++ "\n"
 

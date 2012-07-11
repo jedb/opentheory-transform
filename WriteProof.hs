@@ -45,10 +45,12 @@ cost graph node =
 
 
 
-next :: Eq a => [a] -> a -> (a -> a) -> a
-next list start suc =
-    let f = (\x y -> if (x `elem` y) then f (suc x) y else x)
-    in f start list
+next :: Gr String (Int,Int) -> String
+next graph =
+    let nodeList = filter (isNumber . snd) (Graph.labNodes graph)
+        numList = nub . (map (read . snd)) $ nodeList
+        f = (\x y -> if (x `elem` y) then f (x + 1) y else x)
+    in show (f 0 numList)
 
 
 
@@ -86,7 +88,7 @@ singleCommands :: Gr String (Int,Int) -> [Node] -> Gr String (Int,Int)
 singleCommands graph nodeList =
     let r = (\g n p -> let g' = if (((output g n) /= 1) || ((Graph.indeg g n) == 1) || ((cost g n) < 3) || ((cost g n) == 3 && (Graph.indeg g n) < 3))
                                 then g
-                                else let index = show . length . nub $ (filter (isNumber . snd) (Graph.labNodes g))
+                                else let index = next g --show . length . (nubBy (\x y -> snd x == snd y)) $ (filter (isNumber . snd) (Graph.labNodes g))
                                          new = Graph.newNodes 4 g  -- 2 new nodes for def and 2 new nodes for ref
 
                                          oldEdge = head $ (filter (\x -> fst3 x == p) (Graph.inn g n))

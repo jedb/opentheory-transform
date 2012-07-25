@@ -24,6 +24,8 @@ output :: Gr String (Int,Int) -> Node -> Int
 output graph node =
     let label = fromJust (Graph.lab graph node)
     in case label of
+           "thm" -> 0
+           "pop" -> 0
            "defineConst" -> 2
            "defineTypeOp" -> 5
            x -> 1
@@ -45,12 +47,13 @@ cost graph node =
 
 
 
-next :: Gr String (Int,Int) -> String
-next graph =
+next :: Int -> Gr String (Int,Int) -> [String]
+next num graph =
     let nodeList = filter (isNumber . snd) (Graph.labNodes graph)
         numList = nub . (map (read . snd)) $ nodeList
         f = (\x y -> if (x `elem` y) then f (x + 1) y else x)
-    in show (f 0 numList)
+        g = (\x y -> if (x == 0) then y else g (x - 1) (f 0 (y ++ numList) : y))
+    in map show (g num [])
 
 
 
@@ -78,9 +81,89 @@ orderNodes graph nodeList = nodeList
 
 
 
-multiCommands :: Gr String (Int,Int) -> [Node] -> Gr String (Int,Int)
-multiCommands graph nodeList = graph
---placeholder
+removeOverlap :: Gr String (Int,Int) -> Node -> [Node] -> [Node]
+removeOverlap graph node list =
+    let nubFunc = (\x y -> (getArg graph node x) == (getArg graph node y))
+    in nubBy nubFunc list
+
+
+
+--rightmostEdge :: Gr String (Int,Int) -> LEdge (Int,Int) -> Bool
+--rightmostEdge graph edge =
+
+
+
+
+--crossEdge :: Gr String (Int,Int) -> LEdge (Int,Int) -> Bool
+
+
+
+--multiCommands :: Gr String (Int,Int) -> [Node] -> Gr String (Int,Int)
+--multiCommands graph nodeList =
+--    let trace = (\g n cn ca ->)
+--
+--        r = (\g n p -> let g' = if ((output g n) <= 1)
+--                                then g
+--                                else let (argToUseDict, (place, placeArg)) = trace g n n 1
+--                                         edgesToRemove = 
+--                                         edgesRemoved = foldl' (\x y -> Graph.delLEdge y x) g edgesToRemove
+--                                         defSubGraph = 
+--                                         edgesToRef = 
+--                                         new = 
+--                                         refsToAdd = 
+--                                         done = foldl' insertSubGraph edgesRemoved refsToAdd
+--                                     in done
+--                       in f g' n) 
+--
+--        f = (\g n -> let argList = (removeOverlap g) . reverse $ [1 .. (Graph.outdeg g n)]
+--                     in foldl' (\x y -> r x (getArg x n y) n) g argList)
+--
+--    in foldl' f graph nodeList
+
+
+
+multiCommandsSimple :: Gr String (Int,Int) -> [Node] -> Gr String (Int,Int)
+multiCommandsSimple graph nodeList =
+    let r = (\g n p -> let g' = if (output g n <= 1)
+                                then g
+                                else let ou = output g n
+                                         index = next ou g
+                                         new = Graph.newNodes (5 * ou + 2) g -- 3 for num/def/pop, 2 for num/ref, per output plus an extra num/ref
+                                         (defNew,refNew) = splitAt (3 * ou + 2) new
+
+                                         edgeCheck = (\x y -> if ((snd . thd3 $ x) > (snd . thd3 $ y)) then GT
+                                                              else if ((snd . thd3 $ x) < (snd . thd3 $ y)) then LT
+                                                              else EQ)
+                                         oldEdge = maximumBy edgeCheck (filter (\x -> fst3 == p) (Graph.inn g n))
+                                         toConvert = delete oldEdge (Graph.inn g n)
+
+                                         defNodeGen = (\i n x lim -> if (x >= lim)
+                                                                     then []
+                                                                     else [(n!!(x*3), i!!x), (n!!(x*3+1), "def"),
+                                                                          (n!!(x*3+2), "pop")] ++ (defNodeGen i n (x+1) lim))
+                                         defNodes = (defNodeGen index defNew 0 ou) ++ [(3*ou, index!!(snd . thd3 $ oldEdge)), (3*ou+1, "ref")]
+                                         defEdgeGen = (\x b -> let x' = [(fst . snd $ x, fst b, (1,1))] ++ (fst x)
+                                                               in (x',b))
+                                         defEdges = [(p, (fst . last $ defNodes), thd3 oldEdge), ((fst . head $ defNodes), n, (1,1))] ++
+                                                    (fst (foldl' defEdgeGen ([], head defNodes) (tail defNodes)))
+                                         defAdded = (Graph.insEdges defEdges) . (Graph.insNodes defNodes) . (Graph.delLEdge oldEdge) $ g
+
+                                         refGen = (\n lab -> [(n!!(2*lab), index!!lab), (n!!(2*lab+1), "ref")])
+                                         refNodes = map (refGen refNew) [1 .. (ou)]
+                                         refEdges = map (\[x,y] -> (y,x,(1,1))) refNodes
+                                         refAdded = (Graph.insEdges refEdges) . (Graph.insNodes (concat refNodes)) $ defAdded
+
+                                         convertEdge = (\g e -> let new = (fst3 e, fst . last (refNodes!!(snd . thd3 $ e)), thd3 e)
+                                                                in (Graph.insEdge new) . (Graph.delLEdge e) $ g)
+
+                                         done = foldl' convertEdge refAdded toConvert
+                                     in done
+                       in f g' n)
+
+        f = (\g n -> let argList = reverse [1 .. (Graph.outdeg g n)]
+                     in foldl' (\x y -> r x (getArg x n y) n) g argList)
+
+    in foldl' f graph nodeList
 
 
 
@@ -88,7 +171,7 @@ singleCommands :: Gr String (Int,Int) -> [Node] -> Gr String (Int,Int)
 singleCommands graph nodeList =
     let r = (\g n p -> let g' = if (((output g n) /= 1) || ((Graph.indeg g n) == 1) || ((cost g n) < 3) || ((cost g n) == 3 && (Graph.indeg g n) < 3))
                                 then g
-                                else let index = next g --show . length . (nubBy (\x y -> snd x == snd y)) $ (filter (isNumber . snd) (Graph.labNodes g))
+                                else let index = head (next 1 g)
                                          new = Graph.newNodes 4 g  -- 2 new nodes for def and 2 new nodes for ref
 
                                          oldEdge = head $ (filter (\x -> fst3 x == p) (Graph.inn g n))
@@ -107,7 +190,7 @@ singleCommands graph nodeList =
                                      in done
                        in f g' n)
 
-        f = (\g n -> let argList = reverse [1 .. (Graph.outdeg g n)]
+        f = (\g n -> let argList = reverse $ [1 .. (Graph.outdeg g n)]
                      in foldl' (\x y -> r x (getArg x n y) n) g argList)
 
     in foldl' f graph nodeList
@@ -125,7 +208,7 @@ removeUnused graph nodeList =
 
 resolve :: Gr String (Int,Int) -> [Node] -> Gr String (Int,Int)
 resolve graph nodeList =
-    foldl' (\g f -> f g nodeList) graph [removeUnused, singleCommands, multiCommands]
+    foldl' (\g f -> f g nodeList) graph [removeUnused, singleCommands, multiCommandsSimple]
 
 
 

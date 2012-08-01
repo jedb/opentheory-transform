@@ -1,5 +1,10 @@
-import System( getArgs )
-import Text.Printf
+module Semantic (
+    eval,
+    doSemanticCheck
+    ) where
+
+
+
 import Data.List
 import Data.Maybe
 import Data.Set( Set )
@@ -329,25 +334,25 @@ varType x =
 
 
 
-doSemanticCheck :: [String] -> String
-doSemanticCheck list =
+eval :: [String] -> MachineState
+eval list =
     let s = Stack.empty
         d = Map.empty
         a = Set.empty
         t = Set.empty
         op = (\x y -> case y of (Comment _) -> x
                                 (Command z) -> z x)
+
         -- important to use foldl here so commands get applied in the correct order
         result = (foldl' (op) (Just (s,d,a,t))) . (map (parse)) $ list
 
-    in case (machineToString result) of
+    in result
+
+
+
+doSemanticCheck :: [String] -> String
+doSemanticCheck list =
+    case (machineToString (eval list)) of
            Just x -> x
            Nothing -> "Error\n"
 
-
-
-main = do
-    args <- getArgs
-    list <- getLines $ head args
-    let result = doSemanticCheck (map (stripReturn) list)
-    printf result

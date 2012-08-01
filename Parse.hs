@@ -7,7 +7,10 @@ module Parse (
 	isComment,
 	isNumber,
 	isName,
-	output
+	output,
+	fst3,
+	snd3,
+	thd3
 	) where
 
 import Control.Monad( liftM )
@@ -62,3 +65,13 @@ output [] = return ()
 output list = do
 	putStrLn (head list)
 	output (tail list)
+
+
+fst3 :: (a,b,c) -> a
+fst3 (a,_,_) = a
+
+snd3 :: (a,b,c) -> b
+snd3 (_,b,_) = b
+
+thd3 :: (a,b,c) -> c
+thd3 (_,_,c) = c

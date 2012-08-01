@@ -17,7 +17,7 @@ import qualified Data.Map as Map
 import Data.List
 import Stack( Stack, at, (<:>) )
 import qualified Stack as Stack
-import Parse( isNumber )
+import Parse( isNumber, fst3, snd3, thd3 )
 
 
 
@@ -62,17 +62,6 @@ subGraph :: Gr a b -> Node -> [Node]
 subGraph graph node =
     let sucList = nub (Graph.suc graph node)
     in nub (node : (foldl' (++) [] (map (subGraph graph) sucList)))
-
-
-
-fst3 :: (a,b,c) -> a
-fst3 (a,_,_) = a
-
-snd3 :: (a,b,c) -> b
-snd3 (_,b,_) = b
-
-thd3 :: (a,b,c) -> c
-thd3 (_,_,c) = c
 
 
 

@@ -6,7 +6,8 @@ module Parse (
 	separateBy,
 	isComment,
 	isNumber,
-	isName
+	isName,
+	output
 	) where
 
 import Control.Monad( liftM )
@@ -54,3 +55,10 @@ isNumber n = all (Char.isNumber) n
 
 isName :: String -> Bool
 isName s = all ((==) '"') [head s, last s]
+
+
+output :: [String] -> IO ()
+output [] = return ()
+output list = do
+	putStrLn (head list)
+	output (tail list)

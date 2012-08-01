@@ -5,12 +5,6 @@ import ProofGraph
 import WriteProof
 
 
-output :: [String] -> IO ()
-output [] = return ()
-output list = do
-	putStrLn (head list)
-	output (tail list)
-
 
 main = do
     args <- getArgs

@@ -2,7 +2,8 @@ module WriteProof (
     write,
     writeAll,
     doWriteProof,
-    singleCommands
+    singleCommands,
+
     ) where
 
 
@@ -124,43 +125,42 @@ removeOverlap graph node list =
 
 multiCommandsSimple :: Gr String (Int,Int) -> [Node] -> Gr String (Int,Int)
 multiCommandsSimple graph nodeList =
-    let r = (\g n p -> let g' = if (output g n <= 1)
+    let r = (\g n p -> let g' = if ((output g n) <= 1)
                                 then g
                                 else let ou = output g n
                                          index = next ou g
                                          new = Graph.newNodes (5 * ou + 2) g -- 3 for num/def/pop, 2 for num/ref, per output plus an extra num/ref
                                          (defNew,refNew) = splitAt (3 * ou + 2) new
 
-                                         edgeCheck = (\x y -> if ((snd . thd3 $ x) > (snd . thd3 $ y)) then GT
-                                                              else if ((snd . thd3 $ x) < (snd . thd3 $ y)) then LT
-                                                              else EQ)
-                                         oldEdge = maximumBy edgeCheck (filter (\x -> fst3 == p) (Graph.inn g n))
+                                         edgeCheck x y = compare (snd . thd3 $ x) (snd . thd3 $ y)
+
+                                         oldEdge = maximumBy edgeCheck (filter (\x -> fst3 x == p) (Graph.inn g n))
                                          toConvert = delete oldEdge (Graph.inn g n)
 
-                                         defNodeGen = (\i n x lim -> if (x >= lim)
+                                         defNodeGen = (\i j x lim -> if (x >= lim)
                                                                      then []
-                                                                     else [(n!!(x*3), i!!x), (n!!(x*3+1), "def"),
-                                                                          (n!!(x*3+2), "pop")] ++ (defNodeGen i n (x+1) lim))
-                                         defNodes = (defNodeGen index defNew 0 ou) ++ [(3*ou, index!!(snd . thd3 $ oldEdge)), (3*ou+1, "ref")]
-                                         defEdgeGen = (\x b -> let x' = [(fst . snd $ x, fst b, (1,1))] ++ (fst x)
+                                                                     else [(j!!(x*3), i!!x), (j!!(x*3+1), "def"),
+                                                                          (j!!(x*3+2), "pop")] ++ (defNodeGen i j (x+1) lim))
+                                         defNodes = (defNodeGen index defNew 0 ou) ++ [(defNew!!(3*ou), index!!((snd . thd3 $ oldEdge)-1)), (defNew!!(3*ou+1), "ref")]
+                                         defEdgeGen = (\x b -> let x' = [(fst b, fst . snd $ x, (1,1))] ++ (fst x)
                                                                in (x',b))
                                          defEdges = [(p, (fst . last $ defNodes), thd3 oldEdge), ((fst . head $ defNodes), n, (1,1))] ++
                                                     (fst (foldl' defEdgeGen ([], head defNodes) (tail defNodes)))
                                          defAdded = (Graph.insEdges defEdges) . (Graph.insNodes defNodes) . (Graph.delLEdge oldEdge) $ g
 
-                                         refGen = (\n lab -> [(n!!(2*lab), index!!lab), (n!!(2*lab+1), "ref")])
+                                         refGen = (\i lab -> [(i!!(2*(lab-1)), index!!(lab-1)), (i!!(2*(lab-1)+1), "ref")])
                                          refNodes = map (refGen refNew) [1 .. (ou)]
-                                         refEdges = map (\[x,y] -> (y,x,(1,1))) refNodes
+                                         refEdges = map (\[x,y] -> (fst y, fst x,(1,1))) refNodes
                                          refAdded = (Graph.insEdges refEdges) . (Graph.insNodes (concat refNodes)) $ defAdded
 
-                                         convertEdge = (\g e -> let new = (fst3 e, fst . last (refNodes!!(snd . thd3 $ e)), thd3 e)
+                                         convertEdge = (\g e -> let new = (fst3 e, fst . last $ (refNodes!!(snd . thd3 $ e)), thd3 e)
                                                                 in (Graph.insEdge new) . (Graph.delLEdge e) $ g)
 
                                          done = foldl' convertEdge refAdded toConvert
                                      in done
                        in f g' n)
 
-        f = (\g n -> let argList = reverse [1 .. (Graph.outdeg g n)]
+        f = (\g n -> let argList = reverse $ [1 .. (Graph.outdeg g n)]
                      in foldl' (\x y -> r x (getArg x n y) n) g argList)
 
     in foldl' f graph nodeList

@@ -27,8 +27,8 @@ toThms graph nodeList =
                            node = snd3 . head $ edge
                        in write g node)
 
-        f = (\x -> (show . fst $ x) ++ ".  [" ++ show ((fst4 . fromJust $ (eval (hyp graph (snd x)))) `at` 0) ++ 
-                   "] |- " ++ show ((fst4 . fromJust $ (eval (con graph (snd x)))) `at` 0))
+        f = (\x -> (show . fst $ x) ++ ".  " ++ (show . fromJust $ ((fst4 . fromJust $ (eval (hyp graph (snd x)))) `at` 0)) ++ 
+                   " |- " ++ (show . fromJust $ ((fst4 . fromJust $ (eval (con graph (snd x)))) `at` 0)))
 
     in map f (zip [1..] nodeList)
 

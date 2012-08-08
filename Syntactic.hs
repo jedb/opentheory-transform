@@ -1,5 +1,7 @@
 import System( getArgs )
 import Text.Printf
+import Parse
+
 
 
 scan :: String -> String
@@ -43,7 +45,7 @@ doScan = map (scan . stripReturn)
 
 main = do
 	args <- getArgs
-	list <- getLines $ head args
+	list <- getLines (head args)
 	plist <- return $ doScan list
-	printf $ if (list == plist) then "Scan OK\n" else "Syntax error\n"
+	printf $ if (args == plist) then "Scan OK\n" else "Syntax error\n"
 

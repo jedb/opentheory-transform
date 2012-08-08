@@ -8,7 +8,7 @@ import WriteProof
 
 main = do
     args <- getArgs
-    list <- getLines $ head args
+    list <- getLines (head args)
     let graph = doGraphGen (map (stripReturn) list)
         trace = doWriteProof graph
     output trace

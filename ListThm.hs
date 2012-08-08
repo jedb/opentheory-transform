@@ -36,7 +36,7 @@ toThms graph nodeList =
 
 main = do
     args <- getArgs
-    list <- getLines $ head args
+    list <- getLines (head args)
     let graph = doGraphGen (map (stripReturn) list)
         initList = filter (\x -> Graph.indeg graph x == 0) (Graph.nodes graph)
         theorems = toThms graph initList

@@ -11,12 +11,15 @@ import Data.Set( Set )
 import qualified Data.Set as Set
 import Data.Map( Map, (!) )
 import qualified Data.Map as Map
+
 import Data.Graph.Inductive.Graph( LNode, LEdge, (&) )
 import qualified Data.Graph.Inductive.Graph as Graph
 import Data.Graph.Inductive.Tree
+
 import Stack( Stack, at, (<:>) )
 import qualified Stack as Stack
 import Parse( isNumber, isName )
+import GraphPart( checkDupe )
 
 
 
@@ -63,23 +66,11 @@ process str io graph stack =
         nextNum = head (Graph.newNodes 1 graph)
         node = (nextNum, str)
         edgeList = map (\x -> (nextNum, (fst . snd . snd $ x), (fst x, fst . snd $ x))) (zip [1..(args io)] argList)
-        r = insertNode node edgeList graph
-        nodeList = map (\x -> (x, fst r)) [1..(results io)]
+        graph' = (Graph.insEdges edgeList) . (Graph.insNode node) $ graph
+        nodeList = map (\x -> (x, node)) [1..(results io)]
         stack' = foldr (<:>) (Stack.pop (args io) stack) nodeList
-    in (snd r, stack')
+    in (graph', stack')
 
-
-insertNode :: LNode String -> [LEdge (Int,Int)] -> PGraph -> (LNode String, PGraph)
-insertNode node edgeList graph =
-    let checkList = filter (\x -> (snd x) == (snd node)) (Graph.labNodes graph)
-        edgeCheck = filter (\x -> (length (snd x) == length edgeList) &&
-                                  all (\((a,b,c),(d,e,f)) -> b==e && c==f)
-                                      (zip (snd x) edgeList)) (zip [0..] (map ((Graph.out graph) . fst) checkList))
-        actualNode = if (edgeCheck == []) then node else checkList !! (fst . head $ edgeCheck)
-        graph' = if (node == actualNode)
-                 then Graph.insEdges edgeList (Graph.insNode actualNode graph)
-                 else graph
-    in (actualNode,graph')
 
 
 parse :: (PGraph,PStack,PMap) -> String -> (PGraph,PStack,PMap)
@@ -121,5 +112,5 @@ doGraphGen list =
         stack = Stack.empty
         dictionary = Map.empty
         result = foldl' parse (graph,stack,dictionary) list
-    in case result of (g,s,d) -> g
+    in case result of (g,s,d) -> checkDupe g
 

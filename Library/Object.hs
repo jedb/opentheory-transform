@@ -1,4 +1,4 @@
-module Object (
+module Library.Object (
 	Object(..),
     objNum,
     objName,
@@ -19,9 +19,9 @@ module Object (
 
 import Data.Maybe
 import Data.List
-import TypeVar
-import Term
-import Theorem
+import Library.TypeVar
+import Library.Term
+import Library.Theorem
 
 
 

@@ -1,4 +1,4 @@
-module Stack (
+module Library.Stack (
 	Stack,
     empty,
     at,

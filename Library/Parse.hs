@@ -1,4 +1,4 @@
-module Parse (
+module Library.Parse (
 	getLines,
 	stripReturn,
 	removeEscChars,

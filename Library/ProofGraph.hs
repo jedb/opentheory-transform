@@ -1,4 +1,4 @@
-module ProofGraph (
+module Library.ProofGraph (
     PGraph,
     doGraphGen
     ) where
@@ -16,10 +16,10 @@ import Data.Graph.Inductive.Graph( LNode, LEdge, (&) )
 import qualified Data.Graph.Inductive.Graph as Graph
 import Data.Graph.Inductive.Tree
 
-import Stack( Stack, at, (<:>) )
-import qualified Stack as Stack
-import Parse( isNumber, isName )
-import GraphPart( checkDupe )
+import Library.Stack( Stack, at, (<:>) )
+import qualified Library.Stack as Stack
+import Library.Parse( isNumber, isName )
+import Library.GraphPart( checkDupe )
 
 
 

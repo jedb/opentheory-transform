@@ -1,4 +1,4 @@
-module TermNet(
+module Library.TermNet(
 	TermNet,
 	empty,
 	addThm
@@ -6,9 +6,9 @@ module TermNet(
 
 
 
-import ProofGraph
-import Object
-import Theorem
+import Library.ProofGraph
+import Library.Object
+import Library.Theorem
 
 
 

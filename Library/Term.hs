@@ -1,4 +1,4 @@
-module Term (
+module Library.Term (
     Term(..),
     Substitution,
 
@@ -22,7 +22,7 @@ module Term (
 import Data.List
 import qualified Data.Set as Set
 import qualified Data.Map as Map
-import TypeVar
+import Library.TypeVar
 
 
 

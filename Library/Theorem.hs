@@ -1,12 +1,12 @@
-module Theorem (
+module Library.Theorem (
 	Theorem(..),
 	) where
 
 
 
 import qualified Data.Set as Set
-import TypeVar
-import Term
+import Library.TypeVar
+import Library.Term
 
 
 

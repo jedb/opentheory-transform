@@ -1,7 +1,7 @@
 import System.Environment( getArgs )
 import Text.Printf
-import Parse
-import ProofGraph
+import Library.Parse
+import Library.ProofGraph
 
 
 main = do

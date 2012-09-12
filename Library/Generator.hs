@@ -1,4 +1,4 @@
-module Generator (
+module Library.Generator (
     listGen,
     substitutionGen,
     termGen,
@@ -11,8 +11,8 @@ module Generator (
 
 
 import Data.List
-import Term
-import TypeVar
+import Library.Term
+import Library.TypeVar
 
 
 

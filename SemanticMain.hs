@@ -1,7 +1,7 @@
 import System.Environment( getArgs )
 import Text.Printf
-import Parse
-import Semantic
+import Library.Parse
+import Library.Semantic
 
 
 

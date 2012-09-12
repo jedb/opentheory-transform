@@ -1,8 +1,8 @@
 import System.Environment( getArgs )
 import Text.Printf
-import Parse
-import ProofGraph
-import WriteProof
+import Library.Parse
+import Library.ProofGraph
+import Library.WriteProof
 
 import qualified Data.Graph.Inductive.Graph as Graph
 

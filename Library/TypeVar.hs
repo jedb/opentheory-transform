@@ -1,4 +1,4 @@
-module TypeVar (
+module Library.TypeVar (
 	Number,
 
 	Name(..),

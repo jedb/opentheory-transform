@@ -1,4 +1,4 @@
-module Semantic (
+module Library.Semantic (
     eval,
     doSemanticCheck
     ) where
@@ -11,14 +11,14 @@ import Data.Set( Set )
 import qualified Data.Set as Set
 import Data.Map( Map, (!) )
 import qualified Data.Map as Map
-import TypeVar
-import Term
-import Theorem
-import Object
-import Parse
-import Stack( Stack, at, (<:>) )
-import qualified Stack as Stack
-import qualified Command as Com
+import Library.TypeVar
+import Library.Term
+import Library.Theorem
+import Library.Object
+import Library.Parse
+import Library.Stack( Stack, at, (<:>) )
+import qualified Library.Stack as Stack
+import qualified Library.Command as Com
 
 
 

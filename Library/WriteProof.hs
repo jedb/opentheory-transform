@@ -1,4 +1,4 @@
-module WriteProof (
+module Library.WriteProof (
     write,
     writeAll,
     doWriteProof,
@@ -15,9 +15,9 @@ import Data.Graph.Inductive.Tree
 import Data.Map( Map, (!) )
 import qualified Data.Map as Map
 import Data.List
-import Stack( Stack, at, (<:>) )
-import qualified Stack as Stack
-import Parse( isNumber, fst3, snd3, thd3 )
+import Library.Stack( Stack, at, (<:>) )
+import qualified Library.Stack as Stack
+import Library.Parse( isNumber, fst3, snd3, thd3 )
 
 
 

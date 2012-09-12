@@ -1,10 +1,10 @@
 import System.Environment( getArgs )
 import Text.Printf
-import Parse
-import ProofGraph
-import WriteProof
-import Semantic
-import Stack
+import Library.Parse
+import Library.ProofGraph
+import Library.WriteProof
+import Library.Semantic
+import Library.Stack
 
 import Data.Maybe
 import Data.Graph.Inductive.Graph( Node, LNode, Edge, LEdge )

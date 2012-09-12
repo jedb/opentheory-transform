@@ -1,6 +1,6 @@
 import System.Environment( getArgs )
 import Text.Printf
-import Parse
+import Library.Parse
 
 
 

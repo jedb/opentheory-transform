@@ -1,4 +1,4 @@
-module GraphPart (
+module Library.GraphPart (
 	graphPart,
 	makeGraphPart,
 

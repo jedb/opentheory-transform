@@ -1,8 +1,8 @@
 import Test.HUnit
-import Command
-import TypeVar
-import Term
-import Theorem
+import Library.Command
+import Library.TypeVar
+import Library.Term
+import LibraryTheorem
 import qualified Data.Set as Set
 
 

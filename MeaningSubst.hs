@@ -1,10 +1,10 @@
 import System.Environment( getArgs )
 import Text.Printf
-import Parse
-import ProofGraph
-import GraphPart
-import TermNet( TermNet )
-import qualified TermNet as TermNet
+import Library.Parse
+import Library.ProofGraph
+import Library.GraphPart
+import Library.TermNet( TermNet )
+import qualified Library.TermNet as TermNet
 import qualified Data.Graph.Inductive.Graph as Graph
 
 

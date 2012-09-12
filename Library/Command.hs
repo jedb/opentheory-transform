@@ -1,4 +1,4 @@
-module Command (
+module Library.Command (
 	name,
 	number,
 	absTerm,
@@ -35,11 +35,11 @@ import Data.List
 import Data.Maybe
 import qualified Data.Set as Set
 import qualified Data.Map as Map
-import TypeVar
-import Term
-import Theorem
-import Object
-import Parse
+import Library.TypeVar
+import Library.Term
+import Library.Theorem
+import Library.Object
+import Library.Parse
 
 
 name :: String -> Maybe Name

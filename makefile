@@ -3,7 +3,7 @@ OUTPUTDIR = ./bin
 
 
 
-all: semantic syntactic proofgraph writeproof delete concat listthm
+all: semantic syntactic proofgraph writeproof delete concat listthm meaningsubst unittest
 
 clean:
 	find . -name '*.hi' -delete
@@ -31,4 +31,8 @@ concat:
 listthm:
 	ghc --make ./ListThm.hs -o ${OUTPUTDIR}/ListThm
 
+meaningsubst:
+	ghc --make ./MeaningSubst.hs -o ${OUTPUTDIR}/MeaningSubst
 
+unittest:
+	ghc --make ./Test.hs -o ${OUTPUTDIR}/UnitTest

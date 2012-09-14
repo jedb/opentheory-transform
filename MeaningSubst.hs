@@ -20,41 +20,41 @@ createSubst one two =
     let alreadyMatched = (\x y m -> (Map.member x m || y `elem` Map.elems m) && Map.lookup x m /= Just y)
 
         f = (\x y tymap varmap ->
-            case (x,y) of
-                (TConst a1 ty1, TConst a2 ty2) ->
-                    if (alreadyMatch ty1 ty2 tymap || a1 /= a2)
-                    then Nothing
-                    else let tymap' = if (ty1 == ty2) then tymap else Map.insert ty1 ty2 tymap
-                         in Just (tymap', varmap')
+                case (x,y) of
+                    (TConst a1 ty1, TConst a2 ty2) ->
+                        if (alreadyMatch ty1 ty2 tymap || a1 /= a2)
+                        then Nothing
+                        else let tymap' = if (ty1 == ty2) then tymap else Map.insert ty1 ty2 tymap
+                             in Just (tymap', varmap')
 
-                (TApp a1 b1, TApp a2 b2) ->
-                    do (tymap', varmap') <- f a1 a2 tymap varmap
-                       f b1 b2 tymap' varmap'
+                    (TApp a1 b1, TApp a2 b2) ->
+                        do (tymap', varmap') <- f a1 a2 tymap varmap
+                           f b1 b2 tymap' varmap'
 
-                (TAbs (TVar (Var n1 ty1)) b1, TAbs (TVar (Var n2 ty2)) b2) ->
-                    if (alreadyMatched ty1 ty2 tymap || alreadyMatched n1 n2 varmap)
-                    then Nothing
-                    else let tymap' = if (ty1 == ty2) then tymap else Map.insert ty1 ty2 tymap
-                             varmap' = if (n1 == n2) then varmap else Map.insert n1 n2 varmap
-                         in f b1 b2 tymap' varmap'
+                    (TAbs (TVar (Var n1 ty1)) b1, TAbs (TVar (Var n2 ty2)) b2) ->
+                        if (alreadyMatched ty1 ty2 tymap || alreadyMatched n1 n2 varmap)
+                        then Nothing
+                        else let tymap' = if (ty1 == ty2) then tymap else Map.insert ty1 ty2 tymap
+                                 varmap' = if (n1 == n2) then varmap else Map.insert n1 n2 varmap
+                             in f b1 b2 tymap' varmap'
 
-                (TVar (Var n1 ty1), TVar (Var n2 ty2)) ->
-                    if (alreadyMatched ty1 ty2 tymap || alreadyMatched n1 n2 varmap)
-                    then Nothing
-                    else let tymap' = if (ty1 == ty2) then tymap else Map.insert ty1 ty2 tymap
-                             varmap' = if (n1 == n2) then varmap else Map.insert n1 n2 varmap
-                         in Just (tymap', varmap')
+                    (TVar (Var n1 ty1), TVar (Var n2 ty2)) ->
+                        if (alreadyMatched ty1 ty2 tymap || alreadyMatched n1 n2 varmap)
+                        then Nothing
+                        else let tymap' = if (ty1 == ty2) then tymap else Map.insert ty1 ty2 tymap
+                                 varmap' = if (n1 == n2) then varmap else Map.insert n1 n2 varmap
+                             in Just (tymap', varmap')
 
-                (other, combination) -> Nothing)
+                    (other, combination) -> Nothing)
 
         g = (\x y tymap varmap ->
-            let (hyp1,hyp2) = (Set.fromList . thmHyp $ x, Set.fromList . thmHyp $ y)
-                if (hyp1 == [])
-                then f (thmCon x) (thmCon y) tymap varmap
-                else do (tymap', varmap') <- f (head hyp1) (head hyp2) tymap varmap
-                        g (Theorem (Set.fromList . tail $ hyp1) (thmCon x))
-                          (Theorem (Set.fromList . tail $ hyp2) (thmCon y))
-                          tymap' varmap')
+                let (hyp1,hyp2) = (Set.fromList . thmHyp $ x, Set.fromList . thmHyp $ y)
+                    if (hyp1 == [])
+                    then f (thmCon x) (thmCon y) tymap varmap
+                    else do (tymap', varmap') <- f (head hyp1) (head hyp2) tymap varmap
+                            g (Theorem (Set.fromList . tail $ hyp1) (thmCon x))
+                              (Theorem (Set.fromList . tail $ hyp2) (thmCon y))
+                              tymap' varmap')
 
         maps = g one two Map.empty Map.empty
 

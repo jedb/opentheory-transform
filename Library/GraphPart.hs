@@ -1,4 +1,6 @@
 module Library.GraphPart (
+	GraphPart,
+	
 	graphPart,
 	makeGraphPart,
 
@@ -14,11 +16,7 @@ module Library.GraphPart (
 	size,
 	addedSize,
 	overlap,
-	join,
-
-	checkDupe,
-	nodeEquals,
-	resolveNodeClash
+	join
     ) where
 
 
@@ -30,6 +28,7 @@ import qualified Data.Map as Map
 import Data.Graph.Inductive.Graph( Node, LNode, Edge, LEdge )
 import qualified Data.Graph.Inductive.Graph as Graph
 import Data.Graph.Inductive.Tree
+import Library.ProofGraph
 
 
 data GraphPart = GraphPart { getGraph :: Gr String (Int,Int)
@@ -43,7 +42,7 @@ graphPart nodes edges =
 	in GraphPart graph
 
 
-makeGraphPart :: Gr String (Int,Int) -> Maybe (Node,Int) -> Maybe (Node,Int) -> GraphPart
+makeGraphPart :: PGraph -> Maybe (Node,Int) -> Maybe (Node,Int) -> GraphPart
 makeGraphPart = GraphPart
 
 
@@ -80,7 +79,7 @@ outputLab gpart = do
 
 
 
-graphAdd :: GraphPart -> Maybe (Node,Int) -> Maybe (Node,Int) -> Gr String (Int,Int) -> Gr String (Int,Int)
+graphAdd :: GraphPart -> Maybe (Node,Int) -> Maybe (Node,Int) -> PGraph -> PGraph
 graphAdd gpart i o graph =
 	let (resolved, dict) = resolveNodeClash graph (getGraph gpart)
 	    base = (Graph.insEdges (Graph.labEdges resolved)) . (Graph.insNodes (Graph.labNodes resolved)) $ graph
@@ -102,7 +101,7 @@ graphAdd gpart i o graph =
 
 
 
-graphDel :: GraphPart -> Gr String (Int,Int) -> Gr String (Int,Int)
+graphDel :: GraphPart -> PGraph -> PGraph
 graphDel gpart graph =
 	let n = map fst . nodes $ gpart
 	    e = map (\(a,b,_) -> (a,b)) . edges $ gpart
@@ -115,7 +114,7 @@ size = Graph.noNodes . getGraph
 
 
 
-addedSize :: GraphPart -> Maybe (Node,Int) -> Maybe (Node,Int) -> Gr String (Int,Int) -> Int
+addedSize :: GraphPart -> Maybe (Node,Int) -> Maybe (Node,Int) -> PGraph -> Int
 addedSize gpart i o graph =
 	let oldSize = Graph.noNodes graph
 	    newSize = Graph.noNodes (graphAdd gpart i o graph)
@@ -125,9 +124,9 @@ addedSize gpart i o graph =
 
 overlap :: GraphPart -> GraphPart -> Int
 overlap one two =
-	let addedSize = Graph.noNodes (graphAdd one Nothing Nothing (getGraph two))
-	    totalSize = Graph.noNodes (getGraph one) + Graph.noNodes (getGraph two)
-	in totalSize - addedSize
+	let added = Graph.noNodes (graphAdd one Nothing Nothing (getGraph two))
+	    total = Graph.noNodes (getGraph one) + Graph.noNodes (getGraph two)
+	in total - added
 
 
 
@@ -144,43 +143,4 @@ join one two | (isJust (getOutput one) && isJust (getInput two)) =
 
 	in makeGraphPart (checkDupe (Graph.insEdge ioEdge base)) (getInput one) (Just newOutput)
 
-
-
-checkDupe :: Gr String (Int,Int) -> Gr String (Int,Int)
-checkDupe graph =
-	let f = (\g n ->
-		        let list = filter (\x -> (x /= n) && (nodeEquals g n x)) (Graph.nodes g)
-		        in if (list == []) then g else merge g n (head list))
-
-	    merge = 
-	    	(\g n r ->
-	    	    let edgesFixed = map (\(a,b,c) -> (a,r,c)) (Graph.inn g n)
-	    	    in (Graph.insEdges edgesFixed) . (Graph.delNode n) $ g)
-
-	in foldl' f graph (Graph.nodes graph)
-
-
-
-nodeEquals :: Gr String (Int,Int) -> Node -> Node -> Bool
-nodeEquals graph one two =
-	let edgesOne = sortBy sortFunc (Graph.out graph one)
-	    edgesTwo = sortBy sortFunc (Graph.out graph two)
-	    sortFunc = (\(_,_,x) (_,_,y) -> compare x y)
-	    paired = zip (map (\(_,x,_) -> x) edgesOne) (map (\(_,x,_) -> x) edgesTwo)
-
-	in (Graph.gelem one graph) &&
-	   (Graph.gelem two graph) &&
-	   (Graph.lab graph one == Graph.lab graph two) &&
-	   (length edgesOne == length edgesTwo) &&
-	   (all (\x -> nodeEquals graph (fst x) (snd x)) paired)
-
-
-
-resolveNodeClash :: Gr String (Int,Int) -> Gr String (Int,Int) -> (Gr String (Int,Int), Map Int Int)
-resolveNodeClash ref graph =
-	let dict = Map.fromList (zip (Graph.nodes graph) (Graph.newNodes (Graph.noNodes graph) ref))
-	    nodeList = map (\(x,y) -> (fromJust (Map.lookup x dict), y)) (Graph.labNodes graph)
-	    edgeList = map (\(x,y,z) -> (fromJust (Map.lookup x dict),
-	    	                         fromJust (Map.lookup y dict), z)) (Graph.labEdges graph)
-	in (Graph.mkGraph nodeList edgeList, dict)
 

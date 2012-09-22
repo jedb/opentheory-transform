@@ -1,6 +1,10 @@
 module Library.ProofGraph (
     PGraph,
-    doGraphGen
+    doGraphGen,
+
+    checkDupe,
+    nodeEquals,
+    resolveNodeClash
     ) where
 
 
@@ -12,14 +16,13 @@ import qualified Data.Set as Set
 import Data.Map( Map, (!) )
 import qualified Data.Map as Map
 
-import Data.Graph.Inductive.Graph( LNode, LEdge, (&) )
+import Data.Graph.Inductive.Graph( Node, LNode, LEdge, (&) )
 import qualified Data.Graph.Inductive.Graph as Graph
 import Data.Graph.Inductive.Tree
 
 import Library.Stack( Stack, at, (<:>) )
 import qualified Library.Stack as Stack
 import Library.Parse( isNumber, isName )
-import Library.GraphPart( checkDupe )
 
 
 
@@ -103,7 +106,47 @@ parse gs@(graph,stack,dictionary) str =
 
         x -> let (graph', stack') = process x (argMap x) graph stack
              in (graph', stack', dictionary)
-        
+
+
+
+checkDupe :: PGraph -> PGraph
+checkDupe graph =
+    let f = (\g n ->
+                let list = filter (\x -> (x /= n) && (nodeEquals g n x)) (Graph.nodes g)
+                in if (list == []) then g else merge g n (head list))
+
+        merge = 
+            (\g n r ->
+                let edgesFixed = map (\(a,b,c) -> (a,r,c)) (Graph.inn g n)
+                in (Graph.insEdges edgesFixed) . (Graph.delNode n) $ g)
+
+    in foldl' f graph (Graph.nodes graph)
+
+
+
+nodeEquals :: Gr String (Int,Int) -> Node -> Node -> Bool
+nodeEquals graph one two =
+    let edgesOne = sortBy sortFunc (Graph.out graph one)
+        edgesTwo = sortBy sortFunc (Graph.out graph two)
+        sortFunc = (\(_,_,x) (_,_,y) -> compare x y)
+        paired = zip (map (\(_,x,_) -> x) edgesOne) (map (\(_,x,_) -> x) edgesTwo)
+
+    in (Graph.gelem one graph) &&
+       (Graph.gelem two graph) &&
+       (Graph.lab graph one == Graph.lab graph two) &&
+       (length edgesOne == length edgesTwo) &&
+       (all (\x -> nodeEquals graph (fst x) (snd x)) paired)
+
+
+
+resolveNodeClash :: Gr String (Int,Int) -> Gr String (Int,Int) -> (Gr String (Int,Int), Map Int Int)
+resolveNodeClash ref graph =
+    let dict = Map.fromList (zip (Graph.nodes graph) (Graph.newNodes (Graph.noNodes graph) ref))
+        nodeList = map (\(x,y) -> (fromJust (Map.lookup x dict), y)) (Graph.labNodes graph)
+        edgeList = map (\(x,y,z) -> (fromJust (Map.lookup x dict),
+                                     fromJust (Map.lookup y dict), z)) (Graph.labEdges graph)
+    in (Graph.mkGraph nodeList edgeList, dict)
+
 
 
 doGraphGen :: [String] -> PGraph

@@ -5,11 +5,13 @@ module Library.TermNet(
     getLeafList,
     getBranchList,
 
+    genThm,
     termToTermString,
     thmToTermString,
 
     addThm,
-    addThmFromNode
+    addThmFromNode,
+    matchThm
     ) where
 
 
@@ -90,7 +92,7 @@ termToTermString term =
             ["app"] ++ (termToTermString func) ++ (termToTermString arg)
 
         (TAbs var body) ->
-            ["abs"] ++ (termToTermString body)
+            ["abs", "var"] ++ (termToTermString body)
 
         (TVar var) ->
             ["var"]
@@ -105,42 +107,104 @@ thmToTermString theorem =
 
 
 
-addThm :: TermNet -> Theorem -> Node -> (TermNet, [(Theorem, Node)])
+addThm :: TermNet -> Theorem -> Node -> TermNet
 addThm net theorem node =
-    let stringThm = thmToTermString theorem
-        add = (\net list ->
-                let branchList = fromJust . getBranchList $ net
-                in case list of
-                        [] ->
-                            (net, [])
-
-                        x:[] ->
-                            let (check, rest) = partition (\(y,z) -> y == x && isLeaf z) branchList
-                            in if (check == [])
-                                then (Branch ((x,(Leaf [(theorem,node)])):rest), [(theorem,node)])
-                                else let leaf = snd . head $ check
-                                         leafList = fromJust . getLeafList $ leaf
-                                     in --if ((theorem,node) `elem` leafList)
-                                        --then (Branch ((x,leaf):rest), leafList)
-                                        --else
-                                        (Branch ((x,(Leaf ((theorem,node):leafList))):rest), (theorem,node):leafList)
-
-                        x:xs ->
-                            let (check, rest) = partition (\(y,z) -> y == x && isBranch z) branchList
-                            in if (check == [])
-                                then let (net', resultList) = add empty xs
-                                     in (Branch ((x,net'):rest), resultList)
-                                else let nextStepDown = snd . head $ check
-                                         (net', resultList) = add nextStepDown xs
-                                     in (Branch ((head check):rest), resultList))
-
-    in add net stringThm
+    addThmImp net (theorem,node) (thmToTermString theorem)
 
 
 
-addThmFromNode :: TermNet -> PGraph -> Node -> (TermNet, [(Theorem, Node)])
+addThmFromNode :: TermNet -> PGraph -> Node -> TermNet
 addThmFromNode net graph node =
     let theorem = genThm graph node
-    in addThm net theorem node
+    in addThmImp net (theorem,node) (thmToTermString theorem)
 
+
+
+addThmImp :: TermNet -> (Theorem,Node) -> [String] -> TermNet
+addThmImp (Branch branchList) item (x:[]) =
+    let (sameKey, rest) = partition (\(y,z) -> y == x && isLeaf z) branchList
+    in if (sameKey == [])
+       then let leaf' = Leaf [item]
+            in Branch ((x,leaf'):rest)
+       else let leaf = snd . head $ sameKey
+                leafList = fromJust . getLeafList $ leaf
+            in if (item `elem` leafList)
+               then Branch branchList
+               else let leaf' = Leaf (item:leafList)
+                    in Branch ((x,leaf'):rest)
+
+addThmImp (Branch branchList) item (x:xs) =
+    let (sameKey, rest) = partition (\(y,z) -> y == x) branchList
+    in if (sameKey == [])
+       then let net' = addThmImp empty item xs
+            in Branch ((x,net'):rest)
+       else let nextStepDown = snd . head $ sameKey
+                net' = addThmImp nextStepDown item xs
+            in Branch ((x,net'):rest)
+
+
+
+matchThm :: TermNet -> Theorem -> [(Theorem,Node)]
+matchThm net theorem =
+    let hyp = Set.toList (thmHyp theorem)
+        con = thmCon theorem
+        (curPrefix, curTerm) = if (hyp == [])
+                               then ("con", con)
+                               else ("hyp", head hyp)
+
+        r = do a <- matchImp curPrefix net
+               let b = matchTermImp curTerm a
+                   (branches, leaves) = partition (\x -> isBranch x) b
+
+               c <- if (hyp == [])
+                    then getLeafList (foldl' unify (Leaf []) leaves)
+                    else let theorem' = Theorem (Set.fromList (tail hyp)) con
+                         in return (matchThm (foldl' unify empty branches) theorem')
+               return c
+
+    in if (isNothing r) then [] else fromJust r
+
+
+
+matchImp :: String -> TermNet -> Maybe TermNet
+matchImp key net =
+    do list <- getBranchList net
+       let result = filter (\(x,y) -> x == key) list
+       r <- if (result == []) then Nothing else Just (snd . head $ result)
+       return r
+
+
+
+matchTermImp :: Term -> TermNet -> [TermNet]
+matchTermImp term net =
+    let list = getBranchList net
+        var = matchImp "var" net
+        result =
+            case term of
+                (TConst c ty) -> 
+                    do a <- matchImp "const" net
+                       return [a]
+
+                (TApp f x) ->
+                    do a <- matchImp "app" net
+                       let b = matchTermImp f a
+                       return (concat (map (matchTermImp x) b))
+
+                (TAbs v x) ->
+                    do a <- matchImp "abs" net
+                       b <- matchImp "var" a
+                       return (matchTermImp x b)
+
+                (TVar v) -> Nothing --don't need to do anything because variables are already taken care of
+
+        var' = if (isNothing var) then [] else [fromJust var]
+        result' = if (isNothing result) then [] else fromJust result
+
+    in var' ++ result'
+
+
+
+unify :: TermNet -> TermNet -> TermNet
+unify (Branch a) (Branch b) = Branch (a ++ b)
+unify (Leaf a) (Leaf b) = Leaf (a ++ b)
 

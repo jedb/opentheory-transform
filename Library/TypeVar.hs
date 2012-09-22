@@ -14,7 +14,8 @@ module Library.TypeVar (
 	mkEqualsType,
 	typeFunc,
 	typeBool,
-	typeVarsInType
+	typeVarsInType,
+	isTypeVar
 	) where
 
 
@@ -75,3 +76,9 @@ typeBool = AType [] (TypeOp (Name [] "bool"))
 typeVarsInType :: Type -> Set.Set Type
 typeVarsInType (TypeVar t) = Set.singleton (TypeVar t)
 typeVarsInType (AType list _) = Set.unions . (map typeVarsInType) $ list
+
+
+isTypeVar :: Type -> Bool
+isTypeVar (TypeVar _) = True
+isTypeVar _ = False
+

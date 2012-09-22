@@ -10,7 +10,9 @@ module Test.DataTypes(
     stdVar,
     stdVarTerm,
     altVar,
-    altVarTerm
+    altVarTerm,
+    stdAbsTerm,
+    stdAppTerm
     ) where
 
 
@@ -55,5 +57,12 @@ altVar s = Var (stdName s) altTypeVar
 
 altVarTerm :: String -> Term
 altVarTerm s = TVar (altVar s)
+
+stdAbsTerm :: String -> Term
+stdAbsTerm s = TAbs (stdVarTerm s) stdConstTerm
+
+stdAppTerm :: String -> Term
+stdAppTerm s = TApp (stdAbsTerm s) stdConstTerm
+
 
 

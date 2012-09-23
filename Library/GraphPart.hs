@@ -79,7 +79,7 @@ outputLab gpart = do
 
 
 
-graphAdd :: GraphPart -> Maybe (Node,Int) -> Maybe (Node,Int) -> PGraph -> PGraph
+graphAdd :: GraphPart -> Maybe (Node,Int) -> [(Node,Int)] -> PGraph -> PGraph
 graphAdd gpart i o graph =
 	let (resolved, dict) = resolveNodeClash graph (getGraph gpart)
 	    base = (Graph.insEdges (Graph.labEdges resolved)) . (Graph.insNodes (Graph.labNodes resolved)) $ graph
@@ -89,11 +89,12 @@ graphAdd gpart i o graph =
 	    	         else Graph.insEdge (fromJust (Map.lookup (fst . fromJust . getInput $ gpart) dict),
 	    	         	                 fst . fromJust $ i,
 	    	         	                 (snd . fromJust . getInput $ gpart, snd . fromJust $ i)) base
-	    outputAdded = if (isNothing o || isNothing (getOutput gpart))
+
+	    outputAdded = if (o == [] || isNothing (getOutput gpart))
 	    	          then inputAdded
-	    	          else Graph.insEdge (fst . fromJust $ o,
-	    	          	                  fromJust (Map.lookup (fst . fromJust . getOutput $ gpart) dict),
-	    	          	                  (snd . fromJust $ o, snd . fromJust . getOutput $ gpart)) inputAdded
+	    	          else let outEdge = map (\(x,y) -> (x, fromJust (Map.lookup (fst . fromJust . getOutput $ gpart) dict),
+	    	          	                                    (y, snd . fromJust . getOutput $ gpart))) o
+	    	               in Graph.insEdges outEdge inputAdded
 
 	    graph' = outputAdded
 
@@ -114,7 +115,7 @@ size = Graph.noNodes . getGraph
 
 
 
-addedSize :: GraphPart -> Maybe (Node,Int) -> Maybe (Node,Int) -> PGraph -> Int
+addedSize :: GraphPart -> Maybe (Node,Int) -> [(Node,Int)] -> PGraph -> Int
 addedSize gpart i o graph =
 	let oldSize = Graph.noNodes graph
 	    newSize = Graph.noNodes (graphAdd gpart i o graph)
@@ -124,7 +125,7 @@ addedSize gpart i o graph =
 
 overlap :: GraphPart -> GraphPart -> Int
 overlap one two =
-	let added = Graph.noNodes (graphAdd one Nothing Nothing (getGraph two))
+	let added = Graph.noNodes (graphAdd one Nothing [] (getGraph two))
 	    total = Graph.noNodes (getGraph one) + Graph.noNodes (getGraph two)
 	in total - added
 

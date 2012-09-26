@@ -1,8 +1,8 @@
 "bool"
 "bool"
-var
 varType
-varTerm
+var
+#varTerm
 "bool"
 const
 "bool"

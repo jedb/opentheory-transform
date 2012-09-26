@@ -1,11 +1,10 @@
-"bool"
-"bool"
+"variablename"
+"variabletype"
 varType
 var
-varTerm
-"bool"
+"constname"
 const
-"bool"
+"consttype"
 typeOp
 nil
 opType

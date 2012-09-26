@@ -79,7 +79,7 @@ alphaEquiv a b =
 alphaConvert :: Term -> Term -> Term
 alphaConvert (TConst a ty) (TConst _ _) = TConst a ty
 alphaConvert (TApp a1 b1) (TApp a2 b2) = TApp (alphaConvert a1 a2) (alphaConvert b1 b2)
-alphaConvert (TVar v) (TVar _) = TVar v
+alphaConvert (TVar _) (TVar v) = TVar v
 alphaConvert (TAbs v1 a) (TAbs v2 b) = substitute ([],[(tVar v1,v2)]) (TAbs v1 (alphaConvert a b))
 
 

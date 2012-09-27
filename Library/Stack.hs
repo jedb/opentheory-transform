@@ -3,14 +3,15 @@ module Library.Stack (
     empty,
     at,
     pop,
-    (<:>)
+    (<:>),
+    size
     ) where
 
 
 import Data.List
 
 
-data Stack a = Stack [a]
+data Stack a = Stack [a] deriving (Eq)
 
 
 instance Show a => Show (Stack a) where
@@ -37,3 +38,7 @@ pop n (Stack list) = Stack (drop n list)
 
 (<:>) :: a -> Stack a -> Stack a
 x <:> (Stack list) = Stack (x : list)
+
+
+size :: Stack a -> Int
+size (Stack list) = length list

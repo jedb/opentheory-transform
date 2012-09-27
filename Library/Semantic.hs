@@ -1,4 +1,6 @@
 module Library.Semantic (
+    MachineState,
+    machineToString,
     eval,
     doSemanticCheck
     ) where

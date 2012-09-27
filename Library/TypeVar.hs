@@ -34,7 +34,7 @@ data TypeOp = TypeOp { tyOp :: Name } deriving (Eq, Ord)
 
 data Type = TypeVar { typeVar :: Name }
           | AType { aType :: [Type]
-                  , aTypeOp :: TypeOp } deriving (Eq, Ord)
+                  , aTypeOp :: TypeOp } deriving (Ord)
 
 data Const = Const { constName :: Name } deriving (Eq, Ord)
 
@@ -59,6 +59,17 @@ instance Show Const where
 instance Show Var where
     show (Var a _)   =   show a
 
+
+instance Eq Type where
+	a == b   =   a `typeAlphaEquiv` b
+
+
+
+typeAlphaEquiv :: Type -> Type -> Bool
+typeAlphaEquiv (TypeVar a) (TypeVar b) = True
+typeAlphaEquiv (AType alist aop) (AType blist bop) =
+	aop == bop && all (\(x,y) -> x == y) (zip alist blist)
+typeAlphaEquiv _ _ = True
 
 
 mkEqualsType :: Type -> Type

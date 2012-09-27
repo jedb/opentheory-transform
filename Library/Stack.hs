@@ -4,7 +4,8 @@ module Library.Stack (
     at,
     pop,
     (<:>),
-    size
+    size,
+    diff
     ) where
 
 
@@ -42,3 +43,8 @@ x <:> (Stack list) = Stack (x : list)
 
 size :: Stack a -> Int
 size (Stack list) = length list
+
+
+diff :: (Eq a) => Stack a -> Stack a -> Stack a
+diff (Stack one) (Stack two) = Stack (one \\ two)
+

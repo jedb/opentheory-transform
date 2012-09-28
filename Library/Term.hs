@@ -38,8 +38,8 @@ type Substitution = ( [(Name,Type)], [(Var,Term)] )
 
 
 instance Show Term where
-    show (TVar a)       =   (show a)
-    show (TConst a _)   =   show a 
+    show (TVar v)       =   (show v) 
+    show (TConst a _)   =   (show a)
     show (TApp (TApp eq lhs) rhs)
             | isEq eq   =   "(" ++ (show lhs) ++ " = " ++ (show rhs) ++ ")"
     show (TApp a b)     =   "(" ++ (show a) ++ " " ++ (show b) ++ ")"
@@ -56,28 +56,28 @@ alphaEquiv a b =
     let equiv = \term1 term2 varmap1 varmap2 depth ->
             case (term1,term2) of
                 (TConst a1 b1, TConst a2 b2) ->
-                    a1 == a2 --&& b1 == b2
+                    a1 == a2
 
                 (TApp a1 b1, TApp a2 b2) ->
                     equiv a1 a2 varmap1 varmap2 depth &&
                     equiv b1 b2 varmap1 varmap2 depth
 
                 (TAbs (TVar (Var name1 type1)) b1, TAbs (TVar (Var name2 type2)) b2) ->
-                    --type1 == type2 &&
                     equiv b1 b2 newmap1 newmap2 (depth+1)
                     where newmap1 = Map.insert (Var name1 type1) depth varmap1
                           newmap2 = Map.insert (Var name2 type2) depth varmap2
 
                 (TVar (Var name1 type1), TVar (Var name2 type2)) ->
-                    (name1 == name2 && Map.notMember (Var name1 type1) varmap1  && Map.notMember (Var name2 type2) varmap2) ||
+                    (name1 == name2 && Map.notMember (Var name1 type1) varmap1 && Map.notMember (Var name2 type2) varmap2) ||
                     Map.lookup (Var name1 type1) varmap1 == Map.lookup (Var name2 type2) varmap2
 
                 (_,_) -> False
+                
     in equiv a b Map.empty Map.empty 0
 
 
 alphaConvert :: Term -> Term -> Term
-alphaConvert (TConst a ty) (TConst _ _) = TConst a ty
+alphaConvert (TConst _ _) (TConst a ty) = TConst a ty
 alphaConvert (TApp a1 b1) (TApp a2 b2) = TApp (alphaConvert a1 a2) (alphaConvert b1 b2)
 alphaConvert (TVar _) (TVar v) = TVar v
 alphaConvert (TAbs v1 a) (TAbs v2 b) = substitute ([],[(tVar v1,v2)]) (TAbs v1 (alphaConvert a b))

@@ -121,7 +121,7 @@ substitute8 = TestCase (assertEqual "for (substitute ([],[(x',y'),(y',z')]) (x')
 
 substitute9 = TestCase (assertEqual "for (substitute ([(tx',ty'),(ty',ta)],[]) (z' with typevar tx'))"
 	                                (TVar (Var (stdName "z'") stdType))
-	                                (substitute ([(stdTypeVarName,altTypeVar),(altTypeVarName,stdType)],[]) (stdVarTerm "z'")))
+	                                (substitute ([(stdTypeVarName,altTypeVar),(altTypeVarName,stdType)],[]) (TVar (Var (stdName "z'") altTypeVar))))
 
 
 main =

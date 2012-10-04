@@ -15,13 +15,17 @@ module Library.TypeVar (
 	typeFunc,
 	typeBool,
 	typeVarsInType,
-	isTypeVar
+	isTypeVar,
+	typeVarSub
 	) where
 
 
 
 import Data.List
+import Data.Maybe
 import qualified Data.Set as Set
+import Data.Map( Map, (!) )
+import qualified Data.Map as Map
 
 
 
@@ -50,7 +54,9 @@ instance Show TypeOp where
     show a   =   "typeOp " ++ (show $ tyOp a)
 
 instance Show Type where
-    show (TypeVar tyVar)   =   "typeVar " ++ (show tyVar)
+    show (TypeVar tyVar)   =   "V " ++ (show tyVar)
+    show (AType [] (TypeOp (Name [] "bool"))) = "bool"
+    show (AType [d,r] (TypeOp (Name [] "->"))) = "(" ++ show d ++ " -> " ++ show r ++ ")"
     show (AType list typeOp) =   "type " ++ (show $ tyOp typeOp) ++ " " ++ (show list)
 
 instance Show Const where
@@ -81,4 +87,13 @@ typeVarsInType (AType list _) = Set.unions . (map typeVarsInType) $ list
 isTypeVar :: Type -> Bool
 isTypeVar (TypeVar _) = True
 isTypeVar _ = False
+
+
+typeVarSub :: Map Name Type -> Type -> Type
+typeVarSub m (TypeVar a) = 
+	if (Map.member a m)
+	then fromJust (Map.lookup a m)
+	else TypeVar a
+typeVarSub m (AType list op) =
+	AType (map (typeVarSub m) list) op
 

@@ -20,6 +20,7 @@ module Library.Term (
 
 
 import Data.List
+import Data.Maybe
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import Library.TypeVar
@@ -56,7 +57,7 @@ alphaEquiv a b =
     let equiv = \term1 term2 varmap1 varmap2 depth ->
             case (term1,term2) of
                 (TConst a1 b1, TConst a2 b2) ->
-                    a1 == a2
+                    a1 == a2 && b1 == b2
 
                 (TApp a1 b1, TApp a2 b2) ->
                     equiv a1 a2 varmap1 varmap2 depth &&
@@ -68,8 +69,8 @@ alphaEquiv a b =
                           newmap2 = Map.insert (Var name2 type2) depth varmap2
 
                 (TVar (Var name1 type1), TVar (Var name2 type2)) ->
-                    (name1 == name2 && Map.notMember (Var name1 type1) varmap1 && Map.notMember (Var name2 type2) varmap2) ||
-                    Map.lookup (Var name1 type1) varmap1 == Map.lookup (Var name2 type2) varmap2
+                    type1 == type2 && ((name1 == name2 && Map.notMember (Var name1 type1) varmap1 && Map.notMember (Var name2 type2) varmap2) ||
+                    Map.lookup (Var name1 type1) varmap1 == Map.lookup (Var name2 type2) varmap2)
 
                 (_,_) -> False
                 
@@ -88,34 +89,31 @@ alphaConvertList a b = map (\x -> alphaConvert (fst x) (snd x)) (zip a b)
 
 
 substitute :: Substitution -> Term -> Term
-substitute (tymap,vmap) term =
+substitute (t,v) term =
     let typesub =
             (\x y ->
                 case y of
-                    (TConst a ty) -> if (ty == (TypeVar . fst $ x))
-                                     then TConst a (snd x)
-                                     else TConst a ty
+                    (TConst a ty) -> TConst a (typeVarSub x ty)
                     (TApp a b) -> TApp (typesub x a) (typesub x b)
-                    (TAbs (TVar (Var n ty)) a) -> if (ty == (TypeVar . fst $ x))
-                                                  then TAbs (TVar (Var n (snd x))) (typesub x a)
-                                                  else TAbs (TVar (Var n ty)) (typesub x a)
-                    (TVar (Var n ty)) -> if (ty == (TypeVar . fst $ x))
-                                         then TVar (Var n (snd x))
-                                         else TVar (Var n ty))
+                    (TAbs (TVar (Var n ty)) a) -> TAbs (TVar (Var n (typeVarSub x ty))) (typesub x a)
+                    (TVar (Var n ty)) -> TVar (Var n (typeVarSub x ty)))
+
         varsub =
             (\x y ->
                 case y of
                     (TConst a ty) -> TConst a ty
                     (TApp a b) -> TApp (varsub x a) (varsub x b)
-                    (TVar v) -> if (v == (fst x))
-                                then snd x
+                    (TVar v) -> if (Map.member v x)
+                                then fromJust (Map.lookup v x)
                                 else TVar v
-                    (TAbs v a) -> let safe = rename (TAbs v a) (Set.insert (fst x) (freeVars . snd $ x))
+                    (TAbs v a) -> let safe = rename (TAbs v a) (Set.union (Map.keysSet x) (Set.unions . (map freeVars) . (Map.elems) $ x))
                                   in case safe of
-                                         (TAbs m n) -> TAbs m (varsub x n))
-        tydone = foldl' (\x y -> typesub y x) term tymap
-        vdone = foldl' (\x y -> varsub y x) tydone vmap
-    in vdone
+                                         (TAbs m n) -> TAbs m (varsub x n)) 
+
+        tymap = foldl' (\z (x,y) -> Map.insert x y z) Map.empty t
+        vmap = foldl' (\z (x,y) -> Map.insert x y z) Map.empty v
+
+    in (varsub vmap) . (typesub tymap) $ term
 
 
 boundVars :: Term -> Set.Set Var

@@ -3,7 +3,9 @@ module Library.WriteProof (
     writeAll,
     doWriteProof,
     singleCommands,
-
+    next,
+    genPart,
+    writeGraph
     ) where
 
 
@@ -14,26 +16,20 @@ import qualified Data.Graph.Inductive.Graph as Graph
 import Data.Graph.Inductive.Tree
 import Data.Map( Map, (!) )
 import qualified Data.Map as Map
+import Data.Set( Set )
+import qualified Data.Set as Set
 import Data.List
 import Library.Stack( Stack, at, (<:>) )
 import qualified Library.Stack as Stack
 import Library.Parse( isNumber, fst3, snd3, thd3 )
+import Library.Cost
+import Library.ProofGraph
+import Library.GraphPart
+import Library.Usage
 
 
 
-output :: Gr String (Int,Int) -> Node -> Int
-output graph node =
-    let label = fromJust (Graph.lab graph node)
-    in case label of
-           "thm" -> 0
-           "pop" -> 0
-           "defineConst" -> 2
-           "defineTypeOp" -> 5
-           x -> 1
-
-
-
-reuse :: Gr String (Int,Int) -> Node -> Int
+reuse :: PGraph -> Node -> Int
 reuse graph node =
     let labels = map snd (Graph.lpre graph node)
         f = (\x y -> length (filter (\z -> fst y == fst z) x))
@@ -42,13 +38,7 @@ reuse graph node =
 
 
 
-cost :: Gr String (Int,Int) -> Node -> Int
-cost graph node =
-    length (subGraph graph node)
-
-
-
-next :: Int -> Gr String (Int,Int) -> [String]
+next :: Int -> PGraph -> [String]
 next num graph =
     let nodeList = filter (isNumber . snd) (Graph.labNodes graph)
         numList = nub . (map (read . snd)) $ nodeList
@@ -65,13 +55,13 @@ subGraph graph node =
 
 
 
-orderNodes :: Gr String (Int,Int) -> [Node] -> [Node]
+orderNodes :: PGraph -> [Node] -> [Node]
 orderNodes graph nodeList = nodeList
 --placeholder
 
 
 
-removeOverlap :: Gr String (Int,Int) -> Node -> [Node] -> [Node]
+removeOverlap :: PGraph -> Node -> [Node] -> [Node]
 removeOverlap graph node list =
     let nubFunc = (\x y -> (getArg graph node x) == (getArg graph node y))
     in nubBy nubFunc list
@@ -88,35 +78,64 @@ removeOverlap graph node list =
 
 
 
---multiCommands :: Gr String (Int,Int) -> [Node] -> Gr String (Int,Int)
+--trace :: Gr String (Int,Int) -> Node -> [Node] -> Maybe (Int,Node,Int)
+--trace graph node history =
+--    let tr = (\g n curnode curarg hist ->
+--            if (curarg > output g n)
+--            then Nothing
+--            else let argToFollow = if (n == curnode) then curarg else 1
+--                     outputsFromArg = filter (\(x,y) -> snd y == argToFollow) (Graph.lpre g curnode)
+--
+--            in case outputFromCurArg of
+--                    0 -> 
+--            if (filter (\(x,y) -> snd y == curarg) (Graph.lpre g n) > 1)
+--            if (curarg > output g n)
+--            then Nothing
+--            else if (n == curnode)
+--                 then let curnode' = filter (\(x,y) -> ) (Graph.lpre g n)
+--                      in tr g n curnode' curarg
+--                 else )
+--
+--        f = (\g n curarg h ->
+--            if (curarg > output g n)
+--            then Nothing
+--            else let hist = if 
+--                     place = tr g n n hist
+--                 in if (isJust place)
+--                    then place
+--                    else f g n (curarg+1) hist
+--
+--    in f graph node 1 history
+
+-- higher numbers -> deeper in the stack
+
+--multiCommands :: Gr String (Int,Int) -> [Node] -> (Gr String (Int,Int), [Node])
 --multiCommands graph nodeList =
---    let trace = (\g n cn ca ->)
+--    let f = (\g n p ->
+--            if ((output g n) <= 1)
+--            then g
+--            else let changed = do (argToUseDict, place, placeArg) <- trace g n
+--                                  let edgesToRemove = 
+--                                      edgesRemoved = foldl' (\x y -> Graph.delLEdge y x) g edgesToRemove
+--                                      defSubGraph = 
+--                                      edgesToRef = 
+--                                      new = 
+--                                      refsToAdd = 
+--                                  return (foldl' insertSubGraph edgesRemoved refsToAdd)
+--                 in if (isNothing changed) then g else fromJust changed
 --
---        r = (\g n p -> let g' = if ((output g n) <= 1)
---                                then g
---                                else let (argToUseDict, (place, placeArg)) = trace g n n 1
---                                         edgesToRemove = 
---                                         edgesRemoved = foldl' (\x y -> Graph.delLEdge y x) g edgesToRemove
---                                         defSubGraph = 
---                                         edgesToRef = 
---                                         new = 
---                                         refsToAdd = 
---                                         done = foldl' insertSubGraph edgesRemoved refsToAdd
---                                     in done
---                       in f g' n) 
+--        multiOutputNodes = filter (\x -> output graph x > 1) (Graph.nodes graph)
+--        bestCase = foldl' f graph multiOutputNodes
 --
---        f = (\g n -> let argList = (removeOverlap g) . reverse $ [1 .. (Graph.outdeg g n)]
---                     in foldl' (\x y -> r x (getArg x n y) n) g argList)
---
---    in foldl' f graph nodeList
+--    in
 
 
 
-multiCommandsSimple :: Gr String (Int,Int) -> [Node] -> Gr String (Int,Int)
+multiCommandsSimple :: PGraph -> [Node] -> PGraph
 multiCommandsSimple graph nodeList =
-    let r = (\g n p -> let g' = if ((output g n) <= 1)
+    let r = (\g n p -> let g' = if ((nodeOutput g n) <= 1)
                                 then g
-                                else let ou = output g n
+                                else let ou = nodeOutput g n
                                          index = next ou g
                                          new = Graph.newNodes (5 * ou + 2) g -- 3 for num/def/pop, 2 for num/ref, per output plus an extra num/ref
                                          (defNew,refNew) = splitAt (3 * ou + 2) new
@@ -150,43 +169,68 @@ multiCommandsSimple graph nodeList =
                        in f g' n)
 
         f = (\g n -> let argList = reverse $ [1 .. (Graph.outdeg g n)]
-                     in foldl' (\x y -> r x (getArg x n y) n) g argList)
+                     in foldl' (\x y -> r x (fromJust (getArg x n y)) n) g argList)
 
     in foldl' f graph nodeList
 
 
 
-singleCommands :: Gr String (Int,Int) -> [Node] -> Gr String (Int,Int)
-singleCommands graph nodeList =
-    let r = (\g n p -> let g' = if (((output g n) /= 1) || ((Graph.indeg g n) == 1) || ((cost g n) < 3) || ((cost g n) == 3 && (Graph.indeg g n) < 3))
-                                then g
-                                else let index = head (next 1 g)
-                                         new = Graph.newNodes 4 g  -- 2 new nodes for def and 2 new nodes for ref
+singleCommands :: PGraph -> UsageMap -> [Node] -> PGraph
+singleCommands graph usemap nodeList =
+    let singleNodes = filter (\x -> nodeOutput graph x == 1 && Graph.indeg graph x > 1) (Graph.nodes graph)
+        umap = Map.filterWithKey (\n _ -> n `elem` singleNodes) usemap
 
-                                         oldEdge = head $ (filter (\x -> fst3 x == p) (Graph.inn g n))
-                                         defNodes = [(new!!0, "def"), (new!!1, index)]
-                                         defEdges = [(p, fst (defNodes!!0), (fst . thd3 $ oldEdge, 1)),
-                                                     (fst (defNodes!!0), fst (defNodes!!1), (1,1)),
-                                                     (fst (defNodes!!1), n, (1,1))]
-                                         defAdded = (Graph.insEdges defEdges) . (Graph.insNodes defNodes) . (Graph.delLEdge oldEdge) $ g
+        s = (\graph node edgemap ->
+                let index = head (next 1 graph)
+                    edgeList = Map.toList edgemap
 
-                                         refNodes = [(new!!2, "ref"), (new!!3, index)]
-                                         refEdge = (fst (refNodes!!0), fst (refNodes!!1), (1,1))
-                                         refAdded = (Graph.insEdge refEdge) . (Graph.insNodes refNodes) $ defAdded
-                                         convertEdge = (\g e -> let new = (fst3 e, fst (refNodes!!0), thd3 e)
-                                                                in (Graph.insEdge new) . (Graph.delLEdge e) $ g)
-                                         done = foldl' convertEdge refAdded (filter (\x -> fst3 x /= fst (defNodes!!1)) (Graph.inn refAdded n))
-                                     in done
-                       in f g' n)
+                    defEdge = fst (minimumBy useSort edgeList)
+                    removeEdge = fst (maximumBy useSort edgeList)
+                    refEdgeList = filter (\x -> x /= defEdge && x /= removeEdge) (map fst edgeList)
 
-        f = (\g n -> let argList = reverse $ [1 .. (Graph.outdeg g n)]
-                     in foldl' (\x y -> r x (getArg x n y) n) g argList)
+                    defPart = genPart [index, "def"] True
+                    refPart = genPart [index, "ref"] False
+                    removePart = genPart [index, "remove"] False
 
-    in foldl' f graph nodeList
+                    defNode = (fst3 defEdge, fst . thd3 $ defEdge)
+                    removeNode = (fst3 removeEdge, fst . thd3 $ removeEdge)
+                    refNodeList = map (\x -> (fst3 x, fst . thd3 $ x)) refEdgeList
+
+                    partList = [(defPart, Just (node, 1), [defNode]), (removePart, Nothing, [removeNode])]
+                    partList' = if (refNodeList == []) then partList else (refPart, Nothing, refNodeList):partList
+
+                    edgesRemoved = foldl' (\x (y,z) -> Graph.delLEdge y x) graph edgeList
+                    partsAdded = graphAddList partList' edgesRemoved
+                in partsAdded)
+
+        f = (\gr node edgemap ->
+                let reuse = Graph.indeg graph node
+                    costToStore = (nodeCost graph node) + (listCost ["def","0"]) + (reuse - 1) * (listCost ["ref","0"])
+                    costToIgnore = reuse * (nodeCost graph node)
+                in if (costToStore >= costToIgnore)
+                   then gr
+                   else s gr node edgemap)
+
+    in foldl' (\g n -> f g n (fromJust (Map.lookup n umap))) graph singleNodes
 
 
 
-removeUnused :: Gr String (Int,Int) -> [Node] -> Gr String (Int,Int)
+genPart :: [String] -> Bool -> GraphPart
+genPart labels hasInput =
+    let nodeList = zip [1..] labels
+        edgeFunc = (\edges nodes ->
+            if (nodes == [] || (tail nodes) == [])
+            then edges
+            else let newEdge = (fst (nodes!!1), fst (nodes!!0), (1,1))
+                 in edgeFunc (newEdge:edges) (tail nodes))
+        edgeList = edgeFunc [] nodeList
+        input = if (hasInput) then Just (1,1) else Nothing
+        output = Just (length labels, 1)
+    in graphPart nodeList edgeList input output
+
+
+
+removeUnused :: PGraph -> [Node] -> PGraph
 removeUnused graph nodeList =
     let unused = filter (\x -> Graph.indeg graph x == 0 && x `notElem` nodeList) (Graph.nodes graph)
     in if (unused == [])
@@ -195,46 +239,46 @@ removeUnused graph nodeList =
 
 
 
-resolve :: Gr String (Int,Int) -> [Node] -> Gr String (Int,Int)
+resolve :: PGraph -> [Node] -> PGraph
 resolve graph nodeList =
-    foldl' (\g f -> f g nodeList) graph [removeUnused, singleCommands, multiCommandsSimple]
+    let liveGraph = removeUnused graph nodeList
+        umap = usageMap graph nodeList (Set.fromList (Graph.nodes liveGraph))
+    in foldl' (\g f -> f g umap nodeList) liveGraph [singleCommands]
 
 
 
-getArg :: Gr String (Int,Int) -> Node -> Int -> Node
-getArg graph node arg =
-    snd3 . head $ (filter (\x -> (fst . thd3 $ x) == arg) (Graph.out graph node))
-
-
-
-writeGraph :: Gr String (Int,Int) -> Node -> [String]
+writeGraph :: PGraph -> Node -> [String]
 writeGraph graph node =
     let label = fromJust (Graph.lab graph node)
         argList = [1 .. (Graph.outdeg graph node)]
-    in foldl' (\s a -> (writeGraph graph (getArg graph node a)) ++ s) [label] argList
+        f = (\s a -> let arg = getArg graph node a
+                     in if (isNothing arg)
+                        then s
+                        else (writeGraph graph (fromJust arg)) ++ s)
+    in foldl' f [label] argList
 
 
 
-write :: Gr String (Int,Int) -> Node -> [String]
+write :: PGraph -> Node -> [String]
 write graph node =
     writeGraph (resolve graph [node]) node
 
 
 
-writeAll :: Gr String (Int,Int) -> [Node] -> [String]
+writeAll :: PGraph -> [Node] -> [String]
 writeAll graph nodeList =
     let ordered = orderNodes graph nodeList
-        graph' = resolve graph ordered
+        resolved = resolve graph ordered
         f = (\g n -> if (n == [])
                      then []
                      else (writeGraph g (head n)) ++ (f g (tail n)))
-    in f graph' ordered
+    in f resolved ordered
 
 
 -- metric relates to minimum amount of work done not-on-top of the stack
 
 
-doWriteProof :: Gr String (Int,Int) -> [String]
+doWriteProof :: PGraph -> [String]
 doWriteProof graph =
     let initList = filter (\x -> Graph.indeg graph x == 0) (Graph.nodes graph)
     in writeAll graph initList

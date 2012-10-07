@@ -12,6 +12,7 @@ module Library.GraphPart (
 	outputLab,
 
 	graphAdd,
+	graphAddList,
 	graphDel,
 	size,
 	addedSize,
@@ -99,6 +100,12 @@ graphAdd gpart i o graph =
 	    graph' = outputAdded
 
 	in checkDupe graph'
+
+
+
+graphAddList :: [(GraphPart, Maybe (Node,Int), [(Node,Int)])] -> PGraph -> PGraph
+graphAddList partList graph =
+	foldl' (\g (x,y,z) -> graphAdd x y z g) graph partList
 
 
 

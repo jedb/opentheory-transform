@@ -80,8 +80,8 @@ outputLab gpart = do
 
 
 
-graphAdd :: GraphPart -> Maybe (Node,Int) -> [(Node,Int)] -> PGraph -> PGraph
-graphAdd gpart i o graph =
+graphAddImp :: GraphPart -> Maybe (Node,Int) -> [(Node,Int)] -> PGraph -> PGraph
+graphAddImp gpart i o graph =
 	let (resolved, dict) = resolveNodeClash graph (getGraph gpart)
 	    base = (Graph.insEdges (Graph.labEdges resolved)) . (Graph.insNodes (Graph.labNodes resolved)) $ graph
 
@@ -98,14 +98,21 @@ graphAdd gpart i o graph =
 	    	               in Graph.insEdges outEdge inputAdded
 
 	    graph' = outputAdded
+	in graph'
 
+
+
+graphAdd :: GraphPart -> Maybe (Node,Int) -> [(Node,Int)] -> PGraph -> PGraph
+graphAdd gpart i o graph =
+	let graph' = graphAddImp gpart i o graph
 	in checkDupe graph'
 
 
 
 graphAddList :: [(GraphPart, Maybe (Node,Int), [(Node,Int)])] -> PGraph -> PGraph
 graphAddList partList graph =
-	foldl' (\g (x,y,z) -> graphAdd x y z g) graph partList
+	let graph' = foldl' (\g (x,y,z) -> graphAddImp x y z g) graph partList
+	in checkDupe graph'
 
 
 

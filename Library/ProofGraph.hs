@@ -4,7 +4,9 @@ module Library.ProofGraph (
 
     checkDupe,
     nodeEquals,
-    resolveNodeClash
+    resolveNodeClash,
+
+    argMap
     ) where
 
 

@@ -11,15 +11,16 @@ main = do
     let thm1 = Theorem (Set.empty) stdConstTerm
         thm2 = Theorem (Set.empty) (stdVarTerm "b")
         thm3 = Theorem (Set.empty) (stdVarTerm "c")
+        thm4 = Theorem (Set.empty) (stdAbsTerm "h")
 
-        (net1, matches1) = Net.addThm Net.empty thm1 0
-        (net2, matches2) = Net.addThm net1 thm2 1
-        (net3, matches3) = Net.addThm net2 thm3 2
+        net1 = Net.addThm Net.empty thm1 0
+        net2 = Net.addThm net1 thm2 1
+        net3 = Net.addThm net2 thm3 2
+        net4 = Net.addThm net3 thm4 3
 
+        match = Net.matchThm net4 thm4
+ 
 
-    putStrLn (show net3)
+    putStrLn (show net4)
     putStrLn ""
-    putStrLn (show matches3)
-    putStrLn (intercalate " " . Net.thmToTermString $ thm1)
-    putStrLn (intercalate " " . Net.thmToTermString $ thm2)
-    putStrLn (intercalate " " . Net.thmToTermString $ thm3)
+    putStrLn (show match)

@@ -1,5 +1,5 @@
 
-OUTPUTDIR = ./bin
+OUTPUTDIR = bin
 
 
 

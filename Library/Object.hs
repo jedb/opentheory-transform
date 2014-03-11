@@ -55,10 +55,10 @@ instance Show Object where
 makeSubst :: [Object] -> Maybe Substitution
 makeSubst l =
     let list = (map (mapMaybe objList)) . (mapMaybe objList) $ l
-        f = (\g h x -> (g . head $ x, h . last $ x))
+        f g h x = (g . head $ x, h . last $ x)
         check = f (map (f objName objType)) (map (f objVar objTerm)) list
         g = all (\x -> (isJust . fst $ x) && (isJust . snd $ x))
-        h = (\x -> (fromJust . fst $ x, fromJust . snd $ x))
+        h x = (fromJust . fst $ x, fromJust . snd $ x)
     in if ((g . fst $ check) && (g . snd $ check))
        then Just (map h (fst check), map h (snd check))
        else Nothing

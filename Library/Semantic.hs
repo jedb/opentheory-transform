@@ -80,7 +80,7 @@ parse n = Command (number n)
 
 
 name :: String -> (MachineState -> MachineState)
-name str = \x ->
+name str x =
     do (s,d,a,t) <- x
        n <- Com.name str
        let s' = (ObjName n) <:> s
@@ -88,7 +88,7 @@ name str = \x ->
 
 
 number :: String -> (MachineState -> MachineState)
-number n = \x ->
+number n x =
     do (s,d,a,t) <- x
        num <- Com.number n
        let s' = (ObjNum num) <:> s

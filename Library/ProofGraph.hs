@@ -113,14 +113,12 @@ parse gs@(graph,stack,dictionary) str =
 
 checkDupe :: PGraph -> PGraph
 checkDupe graph =
-    let f = (\g n ->
-                let list = filter (\x -> (x /= n) && (nodeEquals g n x)) (Graph.nodes g)
-                in if (list == []) then g else merge g n (head list))
+    let f g n = let list = filter (\x -> (x /= n) && (nodeEquals g n x)) (Graph.nodes g)
+                in if (list == []) then g else merge g n (head list)
 
-        merge = 
-            (\g n r ->
+        merge g n r = 
                 let edgesFixed = map (\(a,b,c) -> (a,r,c)) (Graph.inn g n)
-                in (Graph.insEdges edgesFixed) . (Graph.delNode n) $ g)
+                in (Graph.insEdges edgesFixed) . (Graph.delNode n) $ g
 
     in foldl' f graph (Graph.nodes graph)
 

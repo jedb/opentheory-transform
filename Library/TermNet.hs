@@ -33,7 +33,8 @@ import qualified Library.Stack as Stack
 
 
 
-data TermNet = Leaf [(Theorem, Node)] | Branch [(String, TermNet)] deriving (Eq, Show)
+data TermNet = Leaf [(Theorem, Node)] | Branch [(String, TermNet)]
+    deriving (Eq, Show)
 
 
 
@@ -72,12 +73,15 @@ getBranchList net =
 
 genThm :: PGraph -> Node -> Theorem
 genThm graph node =
-    let gen = (\g n num -> let edge = filter (\x -> (fst . thd3 $ x) == num) (Graph.out g n)
-                               node = (snd3 . head $ edge)
-                               listing = write g node
-                           in fromJust (((\(a,_,_,_) -> a) . fromJust $ (eval listing)) `at` 0))
+    let gen g n num = 
+            let edge = filter (\x -> (fst . thd3 $ x) == num) (Graph.out g n)
+                node = (snd3 . head $ edge)
+                listing = write g node
+            in fromJust (((\(a,_,_,_) -> a) . fromJust $ (eval listing)) `at` 0)
+
         hypList = map (fromJust . objTerm) (fromJust . objList $ (gen graph node 2))
         con = fromJust . objTerm $ (gen graph node 1)
+
     in Theorem (Set.fromList hypList) con
 
 
@@ -102,7 +106,7 @@ termToTermString term =
 thmToTermString :: Theorem -> [String]
 thmToTermString theorem =
     let hypList = Set.toList (thmHyp theorem)
-        f = (\soFar hyp -> soFar ++ ["hyp"] ++ (termToTermString hyp))
+        f soFar hyp = soFar ++ ["hyp"] ++ (termToTermString hyp)
     in (foldl' f [] hypList) ++ ["con"] ++ (termToTermString . thmCon $ theorem)
 
 

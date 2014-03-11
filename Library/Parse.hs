@@ -39,9 +39,7 @@ removeQuotes = init . tail
 
 separateBy :: Char -> String -> [String]
 separateBy char list =
-	let f = (\x -> if (x == char)
-		           then ' '
-		           else x)
+	let f x = if (x == char) then ' ' else x
 	in words . (map f) $ list
 
 

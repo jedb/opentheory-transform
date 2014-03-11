@@ -29,23 +29,22 @@ type UsageMap = Map Node (Map (LEdge (Int,Int)) (Int,[Int]))
 -- will encounter the nodes of interest through.
 usageMap :: PGraph -> [Node] -> Set Node -> UsageMap
 usageMap graph order interest =
-    let unionFunc = (\a b ->
-                Map.unionWith min a b)
+    let unionFunc a b = Map.unionWith min a b
 
-        addFunc = (\index prev umap edge ->
+        addFunc index prev umap edge =
                 let node = snd3 edge
                     curIn = Graph.outdeg graph (fst3 edge)
                     prev' = (curIn - (fst . thd3 $ edge)):prev
                     toAdd = Map.singleton node (Map.singleton edge (index,prev'))
                 in if (Set.member node interest)
                    then Map.unionWith unionFunc toAdd umap
-                   else umap)
+                   else umap
 
-        f = (\umap (index,node,prev) ->
+        f umap (index,node,prev) =
                 let edgeList = Graph.out graph node
                     sucMapList = map (f Map.empty) (map (\x -> (index, snd3 x, (length edgeList - (fst . thd3 $ x)):prev)) edgeList)
                     umap' = foldl' (addFunc index prev) umap edgeList
-                in Map.unionsWith unionFunc (umap':sucMapList))
+                in Map.unionsWith unionFunc (umap':sucMapList)
 
     in foldl' f Map.empty (zip3 [1..] order (repeat []))
 

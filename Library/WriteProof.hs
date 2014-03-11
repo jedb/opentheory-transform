@@ -148,8 +148,8 @@ next :: Int -> PGraph -> [String]
 next num graph =
     let nodeList = filter (isNumber . snd) (Graph.labNodes graph)
         numList = nub . (map (read . snd)) $ nodeList
-        f = (\x y -> if (x `elem` y) then f (x + 1) y else x)
-        g = (\x y -> if (x == 0) then y else g (x - 1) (f 0 (y ++ numList) : y))
+        f x y = if (x `elem` y) then f (x + 1) y else x
+        g x y = if (x == 0) then y else g (x - 1) (f 0 (y ++ numList) : y)
     in map show (g num [])
 
 
@@ -177,10 +177,10 @@ writeGraph :: PGraph -> Node -> [String]
 writeGraph graph node =
     let label = fromJust (Graph.lab graph node)
         argList = [1 .. (Graph.outdeg graph node)]
-        f = (\s a -> let arg = getArg graph node a
-                     in if (isNothing arg)
-                        then s
-                        else (writeGraph graph (fromJust arg)) ++ s)
+        f s a = let arg = getArg graph node a
+                in if (isNothing arg)
+                    then s
+                    else (writeGraph graph (fromJust arg)) ++ s
     in foldl' f [label] argList
 
 
@@ -195,9 +195,9 @@ writeAll :: PGraph -> [Node] -> [String]
 writeAll graph nodeList =
     let ordered = orderNodes graph nodeList
         resolved = resolve graph ordered
-        f = (\g n -> if (n == [])
-                     then []
-                     else (writeGraph g (head n)) ++ (f g (tail n)))
+        f g n = if (n == [])
+                then []
+                else (writeGraph g (head n)) ++ (f g (tail n))
     in f resolved ordered
 
 

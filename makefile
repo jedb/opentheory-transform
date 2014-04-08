@@ -1,5 +1,6 @@
 
 OUTPUTDIR = bin
+SOURCEDIR = src
 
 
 
@@ -11,32 +12,42 @@ clean:
 
 
 semantic:
-	ghc --make ./SemanticMain.hs -o ${OUTPUTDIR}/Semantic
+	cd ${SOURCEDIR}; \
+	ghc --make SemanticMain.hs -o ../${OUTPUTDIR}/Semantic
 
 syntactic:
-	ghc --make ./Syntactic.hs -o ${OUTPUTDIR}/Syntactic
+	cd ${SOURCEDIR}; \
+	ghc --make Syntactic.hs -o ../${OUTPUTDIR}/Syntactic
 
 proofgraph:
-	ghc --make ./ProofGraphMain.hs -o ${OUTPUTDIR}/ProofGraph
+	cd ${SOURCEDIR}; \
+	ghc --make ProofGraphMain.hs -o ../${OUTPUTDIR}/ProofGraph
 
 writeproof:
-	ghc --make ./WriteProofMain.hs -o ${OUTPUTDIR}/WriteProof
+	cd ${SOURCEDIR}; \
+	ghc --make WriteProofMain.hs -o ../${OUTPUTDIR}/WriteProof
 
 delete:
-	ghc --make ./Delete.hs -o ${OUTPUTDIR}/Delete
+	cd ${SOURCEDIR}; \
+	ghc --make Delete.hs -o ../${OUTPUTDIR}/Delete
 
 concat:
-	ghc --make ./Concat.hs -o ${OUTPUTDIR}/Concat
+	cd ${SOURCEDIR}; \
+	ghc --make Concat.hs -o ../${OUTPUTDIR}/Concat
 
 listthm:
-	ghc --make ./ListThm.hs -o ${OUTPUTDIR}/ListThm
+	cd ${SOURCEDIR}; \
+	ghc --make ListThm.hs -o ../${OUTPUTDIR}/ListThm
 
 meaningsubst:
-	ghc --make ./MeaningSubst.hs -o ${OUTPUTDIR}/MeaningSubst
+	cd ${SOURCEDIR}; \
+	ghc --make MeaningSubst.hs -o ../${OUTPUTDIR}/MeaningSubst
 
 unittest:
-	ghc --make ./Test.hs -o ${OUTPUTDIR}/UnitTest
+	cd ${SOURCEDIR}; \
+	ghc --make Test.hs -o ../${OUTPUTDIR}/UnitTest
 
 compare:
-	ghc --make ./Compare.hs -o ${OUTPUTDIR}/Compare
+	cd ${SOURCEDIR}; \
+	ghc --make Compare.hs -o ../${OUTPUTDIR}/Compare
 
